@@ -82,11 +82,11 @@ jobs:
             DB_USER=${{ secrets.DB_USER }}
             DB_PASSWORD=${{ secrets.DB_PASSWORD }}
             DB_NAME=${{ secrets.DB_NAME }}
-            IMAGE_TAG=${{ github.sha }}
+            IMAGE_TAG=${{ github.ref_name }}
             EOF
             
             # Pull backend image
-            docker pull ghcr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            docker pull ghcr.io/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
             
             # Update docker-compose.yml (assuming it's already there or copied)
             # You might want to copy it here too if it changes often
