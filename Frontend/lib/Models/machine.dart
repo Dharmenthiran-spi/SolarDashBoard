@@ -6,6 +6,9 @@ class Machine {
   final int? companyId;
   final int? customerId;
   final String? image;
+  final String? mqttUsername;
+  final String? mqttPassword;
+  final int? isOnline;
 
   Machine({
     required this.id,
@@ -15,6 +18,9 @@ class Machine {
     this.companyId,
     this.customerId,
     this.image,
+    this.mqttUsername,
+    this.mqttPassword,
+    this.isOnline,
   });
 
   factory Machine.fromJson(Map<String, dynamic> json) {
@@ -26,6 +32,9 @@ class Machine {
       companyId: json['CompanyID'],
       customerId: json['CustomerID'],
       image: json['image'],
+      mqttUsername: json['MqttUsername'],
+      mqttPassword: json['MqttPassword'],
+      isOnline: json['IsOnline'],
     );
   }
 
@@ -42,6 +51,9 @@ class Machine {
           ? int.tryParse(customerId.toString()) ?? customerId
           : customerId,
       'image': image,
+      'MqttUsername': mqttUsername,
+      'MqttPassword': mqttPassword,
+      'IsOnline': isOnline,
     };
   }
 
@@ -53,6 +65,9 @@ class Machine {
     int? companyId,
     int? customerId,
     String? image,
+    String? mqttUsername,
+    String? mqttPassword,
+    int? isOnline,
   }) {
     return Machine(
       id: id ?? this.id,
@@ -62,6 +77,9 @@ class Machine {
       companyId: companyId ?? this.companyId,
       customerId: customerId ?? this.customerId,
       image: image ?? this.image,
+      mqttUsername: mqttUsername ?? this.mqttUsername,
+      mqttPassword: mqttPassword ?? this.mqttPassword,
+      isOnline: isOnline ?? this.isOnline,
     );
   }
 }

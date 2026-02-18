@@ -9,6 +9,9 @@ class MachineBase(BaseModel):
     CompanyID: Optional[int] = None
     CustomerID: Optional[int] = None
     image: Optional[str] = None
+    MqttUsername: Optional[str] = None
+    MqttPassword: Optional[str] = None
+    IsOnline: Optional[int] = 0
 
 class MachineCreate(MachineBase):
 
@@ -34,6 +37,9 @@ class MachineUpdate(BaseModel):
     CompanyID: Optional[int] = None
     CustomerID: Optional[int] = None
     image: Optional[str] = None
+    MqttUsername: Optional[str] = None
+    MqttPassword: Optional[str] = None
+    IsOnline: Optional[int] = None
 
     @field_validator('image')
     @classmethod

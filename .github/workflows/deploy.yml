@@ -84,6 +84,17 @@ jobs:
             DB_NAME=${{ secrets.DB_NAME }}
             IMAGE_NAME=${{ env.IMAGE_NAME }}
             IMAGE_TAG=${{ github.ref_name }}
+            
+            # MQTT Configuration
+            MQTT_BROKER=emqx
+            MQTT_PORT=1883
+            MQTT_USERNAME=admin
+            MQTT_PASSWORD=${{ secrets.MQTT_PASSWORD }}
+            MQTT_USE_TLS=false
+            
+            # Redis Configuration
+            REDIS_HOST=redis
+            REDIS_PORT=6379
             EOF
             
             # Pull backend image

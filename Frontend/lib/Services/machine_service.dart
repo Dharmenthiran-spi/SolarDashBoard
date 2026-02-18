@@ -25,4 +25,8 @@ class MachineService {
   static Future<Map<String, dynamic>> deleteList(List<int> ids) async {
     return await HttpHelper.delete('/machines/delete_list', body: {'ids': ids});
   }
+
+  static Future<Map<String, dynamic>> sendCommand(int id, Map<String, dynamic> command) async {
+    return await HttpHelper.post('/machines/$id/command', command);
+  }
 }

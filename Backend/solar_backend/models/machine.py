@@ -13,6 +13,9 @@ class Machine(Base):
     CompanyID = Column(Integer, ForeignKey("Company.CompanyID"))
     CustomerID = Column(Integer, ForeignKey("Customer.CustomerID"))
     image = Column(LONGBLOB)
+    MqttUsername = Column(String(255), unique=True, nullable=True)
+    MqttPassword = Column(String(255), nullable=True)
+    IsOnline = Column(Integer, default=0) # 0 for Offline, 1 for Online
 
     # Relationships
     company = relationship("Company", back_populates="machines")

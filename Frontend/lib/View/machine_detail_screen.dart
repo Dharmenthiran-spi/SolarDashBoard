@@ -41,6 +41,8 @@ class MachineDetailScreen extends StatelessWidget {
                 _buildPerformanceGraph(context, reports, isDark),
                 const SizedBox(height: 32),
                 _buildRecentEvents(context, isDark),
+                const SizedBox(height: 32),
+                _buildCommandCenter(context, isDark),
               ],
             ),
           );
@@ -73,17 +75,46 @@ class MachineDetailScreen extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'Serial Number: ${machine.serialNo}',
+                  'Serial: ${machine.serialNo}',
                   style: GoogleFonts.inter(
-                    fontSize: 14,
+                    fontSize: 12,
                     color: Colors.grey,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    _buildCredentialTag('MQTT USER', machine.mqttUsername ?? '---', isDark),
+                    const SizedBox(width: 8),
+                    _buildCredentialTag('MQTT PASS', machine.mqttPassword ?? '---', isDark, isPassword: true),
+                  ],
+                ),
               ],
             ),
           ),
-          _buildLiveStatusBadge(),
+          _buildLiveStatusBadge(status),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCredentialTag(String label, String value, bool isDark, {bool isPassword = false}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.03),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.blueAccent.withOpacity(0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: GoogleFonts.inter(fontSize: 7, fontWeight: FontWeight.w900, color: Colors.blueAccent)),
+          Text(
+            isPassword ? '••••••••' : value,
+            style: GoogleFonts.jetBrainsMono(fontSize: 10, fontWeight: FontWeight.bold),
+          ),
         ],
       ),
     );
@@ -107,25 +138,26 @@ class MachineDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildLiveStatusBadge() {
+  Widget _buildLiveStatusBadge(MachineStatus? status) {
+    final isMachineOnline = machine.isOnline == 1;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.greenAccent.withOpacity(0.1),
+        color: (isMachineOnline ? Colors.greenAccent : Colors.redAccent).withOpacity(0.1),
         borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: Colors.greenAccent.withOpacity(0.3)),
+        border: Border.all(color: (isMachineOnline ? Colors.greenAccent : Colors.redAccent).withOpacity(0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const _PulsingDot(color: Colors.greenAccent, size: 10),
+          _PulsingDot(color: isMachineOnline ? Colors.greenAccent : Colors.redAccent, size: 10),
           const SizedBox(width: 10),
           Text(
-            'SYSTEM ONLINE',
+            isMachineOnline ? 'SYSTEM ONLINE' : 'SYSTEM OFFLINE',
             style: GoogleFonts.inter(
               fontSize: 12,
               fontWeight: FontWeight.w900,
-              color: Colors.greenAccent,
+              color: isMachineOnline ? Colors.greenAccent : Colors.redAccent,
               letterSpacing: 1,
             ),
           ),
@@ -294,6 +326,71 @@ class MachineDetailScreen extends StatelessWidget {
           Expanded(child: Text(title, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500))),
           Text(time, style: GoogleFonts.jetBrainsMono(fontSize: 12, color: Colors.grey)),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCommandCenter(BuildContext context, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.blue.withOpacity(0.05) : Colors.blue.withOpacity(0.02),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.blueAccent.withOpacity(0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'INTELLIGENT COMMAND CENTER',
+            style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.blueAccent, letterSpacing: 1.5),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              _buildControlButton(context, 'START CLEANING', Icons.play_arrow_rounded, Colors.greenAccent, "start"),
+              const SizedBox(width: 12),
+              _buildControlButton(context, 'STOP MACHINE', Icons.stop_rounded, Colors.redAccent, "stop"),
+              const SizedBox(width: 12),
+              _buildControlButton(context, 'RETURN TO DOCK', Icons.home_rounded, Colors.amberAccent, "dock"),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildControlButton(BuildContext context, String label, IconData icon, Color color, String cmd) {
+    return Expanded(
+      child: InkWell(
+        onTap: () async {
+          import '../Services/machine_service.dart';
+          try {
+            await MachineService.sendCommand(machine.id, {"command": cmd});
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Command "$label" dispatched to MQTT broker')),
+            );
+          } catch (e) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to send command: $e'), backgroundColor: Colors.redAccent),
+            );
+          }
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: color.withOpacity(0.3)),
+          ),
+          child: Column(
+            children: [
+              Icon(icon, color: color, size: 28),
+              const SizedBox(height: 8),
+              Text(label, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w800, color: color)),
+            ],
+          ),
+        ),
       ),
     );
   }

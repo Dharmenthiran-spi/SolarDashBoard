@@ -11,3 +11,5 @@ passlib[bcrypt]
 cryptography
 email-validator
 PyJWT
+aiomqtt
+redis

@@ -2,7 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'dart:io';
 
 class ApiConfig {
-  static const String? _customServerIP = null; // Set specific IP if needed
+  /// Cloud: "157.173.222.91"
+  static const String? _customServerIP =
+      "157.173.222.91"; // Set specific IP if needed
 
   static String get baseUrl {
     if (_customServerIP != null) return "http://$_customServerIP:8006";
@@ -17,11 +19,8 @@ class ApiConfig {
   }
 
   static const Duration timeout = Duration(seconds: 30);
-  
+
   static Map<String, String> get headers {
-    return {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    };
+    return {'Content-Type': 'application/json', 'Accept': 'application/json'};
   }
 }

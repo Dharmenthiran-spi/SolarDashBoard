@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, FastAPI
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import List
@@ -25,7 +25,15 @@ async def create_machine(machine: MachineCreate, db: AsyncSession = Depends(get_
             detail=f"Machine with serial number '{machine.SerialNo}' already exists."
         )
         
-    new_machine = Machine(**machine.model_dump())
+    machine_data = machine.model_dump()
+    if not machine_data.get("MqttUsername"):
+        machine_data["MqttUsername"] = f"user_{machine.SerialNo}"
+    if not machine_data.get("MqttPassword"):
+        # Simple random password for demo, should be more secure in production
+        import secrets
+        machine_data["MqttPassword"] = secrets.token_urlsafe(12)
+        
+    new_machine = Machine(**machine_data)
     db.add(new_machine)
     await db.commit()
     await db.refresh(new_machine)
@@ -105,3 +113,26 @@ async def delete_machine(machine_id: int, db: AsyncSession = Depends(get_db)):
     
     await db.delete(machine)
     await db.commit()
+
+@router.post("/{machine_id}/command", response_model=dict)
+async def send_command(machine_id: int, command: dict, db: AsyncSession = Depends(get_db)):
+    # Find machine
+    result = await db.execute(select(Machine).filter(Machine.TableID == machine_id))
+    machine = result.scalar_one_or_none()
+    if not machine:
+        raise HTTPException(status_code=404, detail="Machine not found")
+    
+    # Get MQTT handler from app state
+    from ..main import app as fastapi_app
+    mqtt_handler = fastapi_app.state.mqtt_handler
+    
+    if not mqtt_handler:
+        raise HTTPException(status_code=500, detail="MQTT handler not initialized")
+    
+    await mqtt_handler.publish_command(
+        company_id=machine.CompanyID,
+        machine_serial=machine.SerialNo,
+        command=command
+    )
+    
+    return {"status": "Command sent", "topic": f"company/{machine.CompanyID}/machine/{machine.SerialNo}/command"}
