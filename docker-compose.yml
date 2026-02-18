@@ -1,0 +1,48 @@
+services:
+  backend:
+    build:
+      context: ./Backend
+    container_name: solar_backend
+    restart: unless-stopped
+    ports:
+      - "8006:8006"
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=db
+      - DB_PORT=3306
+    volumes:
+      - ./Backend/storage:/app/storage
+    networks:
+      - solar_network
+
+  db:
+    image: mysql:8.0
+    container_name: solar_db
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
+      - MYSQL_DATABASE=${DB_NAME}
+      - MYSQL_USER=${DB_USER}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - solar_network
+    command: --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$${DB_PASSWORD}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  db_data:
+
+
+networks:
+  solar_network:
+    driver: bridge

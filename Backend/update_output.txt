@@ -1,0 +1,6 @@
+Checking columns for table: Machine
+Columns in Machine: ['TableID', 'MachineName', 'SerialNo', 'Description', 'CompanyID', 'CustomerID', 'image']
+'image' column already exists in Machine.
+Checking columns for table: Customer
+Columns in Customer: ['CustomerID', 'CustomerName', 'CustomerAddress', 'CompanyID', 'image']
+'image' column already exists in Customer.

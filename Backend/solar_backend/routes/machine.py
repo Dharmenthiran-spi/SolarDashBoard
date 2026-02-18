@@ -1,0 +1,107 @@
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from typing import List
+
+from ..database import get_db
+from ..models.machine import Machine
+from ..schemas.machine import MachineCreate, MachineUpdate, MachineResponse, MachineDelete
+from ..security import get_current_user
+
+router = APIRouter(
+    prefix="/machines",
+    tags=["Machines"],
+    dependencies=[Depends(get_current_user)]
+)
+
+@router.post("", response_model=MachineResponse, status_code=status.HTTP_201_CREATED)
+async def create_machine(machine: MachineCreate, db: AsyncSession = Depends(get_db)):
+    # Check if SerialNo already exists
+    stmt = select(Machine).filter(Machine.SerialNo == machine.SerialNo)
+    result = await db.execute(stmt)
+    if result.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Machine with serial number '{machine.SerialNo}' already exists."
+        )
+        
+    new_machine = Machine(**machine.model_dump())
+    db.add(new_machine)
+    await db.commit()
+    await db.refresh(new_machine)
+    return new_machine
+
+@router.get("", response_model=List[MachineResponse])
+async def get_machines(customer_id: int = None, db: AsyncSession = Depends(get_db)):
+    query = select(Machine)
+    if customer_id:
+        query = query.filter(Machine.CustomerID == customer_id)
+    result = await db.execute(query)
+    return result.scalars().all()
+
+# Bulk Update
+@router.put("/update_list", response_model=dict)
+async def bulk_update_machines(data: List[MachineUpdate], db: AsyncSession = Depends(get_db)):
+    updated_count: int = 0
+    for item in data:
+        result = await db.execute(select(Machine).filter(Machine.TableID == item.TableID))
+        machine = result.scalar_one_or_none()
+        if not machine:
+            continue
+        
+        for key, value in item.model_dump(exclude_unset=True).items():
+            if key != "TableID":
+                setattr(machine, key, value)
+        updated_count += 1
+        
+    await db.commit()
+    return {"updated_count": updated_count}
+
+@router.put("/{machine_id}", response_model=MachineResponse)
+async def update_machine(machine_id: int, machine_update: MachineUpdate, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Machine).filter(Machine.TableID == machine_id))
+    machine = result.scalar_one_or_none()
+    if not machine:
+        raise HTTPException(status_code=404, detail="Machine not found")
+    
+    # Check if SerialNo already exists for another machine
+    if machine_update.SerialNo and machine_update.SerialNo != machine.SerialNo:
+        stmt = select(Machine).filter(Machine.SerialNo == machine_update.SerialNo)
+        existing_result = await db.execute(stmt)
+        if existing_result.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Machine with serial number '{machine_update.SerialNo}' already exists."
+            )
+
+    for key, value in machine_update.model_dump(exclude_unset=True).items():
+        setattr(machine, key, value)
+    
+    await db.commit()
+    await db.refresh(machine)
+    return machine
+
+# Bulk Delete
+@router.delete("/delete_list", response_model=dict)
+async def bulk_delete_machines(payload: MachineDelete, db: AsyncSession = Depends(get_db)):
+    if not payload.ids:
+        raise HTTPException(status_code=400, detail="No IDs provided")
+        
+    result = await db.execute(select(Machine).filter(Machine.TableID.in_(payload.ids)))
+    machines = result.scalars().all()
+    
+    for machine in machines:
+        await db.delete(machine)
+        
+    await db.commit()
+    return {"deleted_count": len(machines)}
+
+@router.delete("/{machine_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_machine(machine_id: int, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Machine).filter(Machine.TableID == machine_id))
+    machine = result.scalar_one_or_none()
+    if not machine:
+        raise HTTPException(status_code=404, detail="Machine not found")
+    
+    await db.delete(machine)
+    await db.commit()

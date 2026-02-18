@@ -1,0 +1,145 @@
+﻿Resolving dependencies...
+Downloading packages...
+  characters 1.4.0 (1.4.1 available)
+  flutter_lints 5.0.0 (6.0.0 available)
+  lints 5.1.1 (6.1.0 available)
+  matcher 0.12.17 (0.12.18 available)
+  material_color_utilities 0.11.1 (0.13.0 available)
+  meta 1.16.0 (1.18.1 available)
+  mgrs_dart 2.0.0 (3.0.0 available)
+  path_provider_foundation 2.5.1 (2.6.0 available)
+  proj4dart 2.1.0 (3.0.0 available)
+  test_api 0.7.6 (0.7.9 available)
+  unicode 0.3.1 (1.1.9 available)
+Got dependencies!
+11 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Analyzing Frontend...                                           
+
+   info - The constant name 'light_navbar' isn't a lowerCamelCase identifier - lib\Config\Themes\app_colors.dart:5:22 - constant_identifier_names
+   info - The constant name 'light_body' isn't a lowerCamelCase identifier - lib\Config\Themes\app_colors.dart:6:22 - constant_identifier_names
+   info - The constant name 'light_card' isn't a lowerCamelCase identifier - lib\Config\Themes\app_colors.dart:7:22 - constant_identifier_names
+   info - The constant name 'light_text' isn't a lowerCamelCase identifier - lib\Config\Themes\app_colors.dart:8:22 - constant_identifier_names
+   info - The constant name 'light_buttons' isn't a lowerCamelCase identifier - lib\Config\Themes\app_colors.dart:9:22 - constant_identifier_names
+   info - The constant name 'light_secondary_button' isn't a lowerCamelCase identifier - lib\Config\Themes\app_colors.dart:10:22 - constant_identifier_names
+   info - The constant name 'light_dropdown' isn't a lowerCamelCase identifier - lib\Config\Themes\app_colors.dart:11:22 - constant_identifier_names
+   info - The constant name 'dark_navbar' isn't a lowerCamelCase identifier - lib\Config\Themes\app_colors.dart:14:22 - constant_identifier_names
+   info - The constant name 'dark_body' isn't a lowerCamelCase identifier - lib\Config\Themes\app_colors.dart:15:22 - constant_identifier_names
+   info - The constant name 'dark_card' isn't a lowerCamelCase identifier - lib\Config\Themes\app_colors.dart:16:22 - constant_identifier_names
+   info - The constant name 'dark_text' isn't a lowerCamelCase identifier - lib\Config\Themes\app_colors.dart:17:22 - constant_identifier_names
+   info - The constant name 'dark_buttons' isn't a lowerCamelCase identifier - lib\Config\Themes\app_colors.dart:18:22 - constant_identifier_names
+   info - The constant name 'dark_secondary_button' isn't a lowerCamelCase identifier - lib\Config\Themes\app_colors.dart:19:22 - constant_identifier_names
+   info - The constant name 'dark_dropdown' isn't a lowerCamelCase identifier - lib\Config\Themes\app_colors.dart:20:22 - constant_identifier_names
+   info - Uses 'await' on an instance of 'Request', which is not a subtype of 'Future' - lib\Services\api_service.dart:31:22 - await_only_futures
+warning - Unused import: '../../Widget/error_popup.dart' - lib\View\Company\company_list.dart:9:8 - unused_import
+warning - Unused import: 'package:latlong2/latlong.dart' - lib\View\Company\company_list.dart:12:8 - unused_import
+   info - Don't use 'BuildContext's across async gaps - lib\View\Company\company_list.dart:27:28 - use_build_context_synchronously
+   info - 'MaterialStateProperty' is deprecated and shouldn't be used. Use WidgetStateProperty instead. Moved to the Widgets layer to make code available outside of Material. This feature was deprecated after v3.19.0-0.3.pre - lib\View\Company\company_list.dart:182:30 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\View\Company\company_list.dart:182:87 - deprecated_member_use
+   info - Don't use 'BuildContext's across async gaps - lib\View\Company\company_list.dart:350:39 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\View\Company\company_list.dart:353:39 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\View\Company\company_list.dart:356:37 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\View\Company\company_list.dart:384:37 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\View\Company\company_list.dart:386:37 - use_build_context_synchronously
+warning - Unused import: '../../Widget/error_popup.dart' - lib\View\Customer\customer_list.dart:9:8 - unused_import
+   info - Don't use 'BuildContext's across async gaps - lib\View\Customer\customer_list.dart:25:28 - use_build_context_synchronously
+   info - 'MaterialStateProperty' is deprecated and shouldn't be used. Use WidgetStateProperty instead. Moved to the Widgets layer to make code available outside of Material. This feature was deprecated after v3.19.0-0.3.pre - lib\View\Customer\customer_list.dart:180:30 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\View\Customer\customer_list.dart:180:87 - deprecated_member_use
+   info - Don't use 'BuildContext's across async gaps - lib\View\Customer\customer_list.dart:283:39 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\View\Customer\customer_list.dart:286:39 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\View\Customer\customer_list.dart:289:37 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\View\Customer\customer_list.dart:317:37 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\View\Customer\customer_list.dart:319:37 - use_build_context_synchronously
+warning - Unused import: 'package:provider/provider.dart' - lib\View\Dashboard\dashboard_screen.dart:3:8 - unused_import
+warning - Unused import: '../../Config/Themes/app_colors.dart' - lib\View\Dashboard\dashboard_screen.dart:4:8 - unused_import
+   info - 'onPopInvoked' is deprecated and shouldn't be used. Use onPopInvokedWithResult instead. This feature was deprecated after v3.22.0-12.0.pre - lib\View\Dashboard\dashboard_screen.dart:20:7 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\View\Dashboard\dashboard_screen.dart:119:28 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\View\Dashboard\dashboard_screen.dart:120:31 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\View\Dashboard\dashboard_screen.dart:127:23 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\View\Dashboard\dashboard_screen.dart:138:39 - deprecated_member_use
+warning - Unused import: 'package:go_router/go_router.dart' - lib\View\Employee\employee_list.dart:3:8 - unused_import
+warning - Unused import: '../../Widget/error_popup.dart' - lib\View\Employee\employee_list.dart:10:8 - unused_import
+   info - Don't use 'BuildContext's across async gaps - lib\View\Employee\employee_list.dart:32:18 - use_build_context_synchronously
+   info - Statements in an if should be enclosed in a block - lib\View\Employee\employee_list.dart:127:35 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\View\Employee\employee_list.dart:128:18 - curly_braces_in_flow_control_structures
+   info - 'MaterialStateProperty' is deprecated and shouldn't be used. Use WidgetStateProperty instead. Moved to the Widgets layer to make code available outside of Material. This feature was deprecated after v3.19.0-0.3.pre - lib\View\Employee\employee_list.dart:208:31 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\View\Employee\employee_list.dart:208:88 - deprecated_member_use
+   info - Statements in an if should be enclosed in a block - lib\View\Employee\employee_list.dart:243:52 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\View\Employee\employee_list.dart:244:35 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\View\Employee\employee_list.dart:255:52 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\View\Employee\employee_list.dart:256:35 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\View\Employee\employee_list.dart:320:32 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\View\Employee\employee_list.dart:321:25 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\View\Employee\employee_list.dart:333:32 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\View\Employee\employee_list.dart:334:25 - curly_braces_in_flow_control_structures
+   info - Don't use 'BuildContext's across async gaps - lib\View\Employee\employee_list.dart:336:38 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\View\Employee\employee_list.dart:338:38 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\View\Employee\employee_list.dart:365:35 - use_build_context_synchronously
+warning - Unused import: '../../Config/Themes/app_text_styles.dart' - lib\View\Login\login_screen.dart:4:8 - unused_import
+warning - Unused import: '../../Widget/error_popup.dart' - lib\View\Machine\machine_list.dart:9:8 - unused_import
+   info - Don't use 'BuildContext's across async gaps - lib\View\Machine\machine_list.dart:25:28 - use_build_context_synchronously
+   info - 'MaterialStateProperty' is deprecated and shouldn't be used. Use WidgetStateProperty instead. Moved to the Widgets layer to make code available outside of Material. This feature was deprecated after v3.19.0-0.3.pre - lib\View\Machine\machine_list.dart:180:30 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\View\Machine\machine_list.dart:180:87 - deprecated_member_use
+   info - Don't use 'BuildContext's across async gaps - lib\View\Machine\machine_list.dart:312:39 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\View\Machine\machine_list.dart:315:39 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\View\Machine\machine_list.dart:318:37 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\View\Machine\machine_list.dart:346:37 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\View\Machine\machine_list.dart:348:37 - use_build_context_synchronously
+warning - Unused import: '../../Widget/error_popup.dart' - lib\View\Report\report_list.dart:9:8 - unused_import
+   info - Don't use 'BuildContext's across async gaps - lib\View\Report\report_list.dart:25:28 - use_build_context_synchronously
+   info - 'MaterialStateProperty' is deprecated and shouldn't be used. Use WidgetStateProperty instead. Moved to the Widgets layer to make code available outside of Material. This feature was deprecated after v3.19.0-0.3.pre - lib\View\Report\report_list.dart:180:30 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\View\Report\report_list.dart:180:87 - deprecated_member_use
+   info - Don't use 'BuildContext's across async gaps - lib\View\Report\report_list.dart:321:39 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\View\Report\report_list.dart:324:39 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\View\Report\report_list.dart:327:37 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\View\Report\report_list.dart:355:37 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\View\Report\report_list.dart:357:37 - use_build_context_synchronously
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\Widget\custom_snackbar.dart:18:37 - deprecated_member_use
+   info - Parameter 'key' could be a super parameter - lib\Widget\editable_cell.dart:13:9 - use_super_parameters
+warning - Unused import: '../Config/Themes/app_colors.dart' - lib\Widget\main_layout.dart:4:8 - unused_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\Widget\main_layout.dart:97:41 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\Widget\main_layout.dart:221:48 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\Widget\main_layout.dart:223:67 - deprecated_member_use
+   info - Parameter 'key' could be a super parameter - lib\Widget\simple_map_picker.dart:12:9 - use_super_parameters
+   info - The private field _isLoadingPOIs could be 'final' - lib\Widget\simple_map_picker.dart:35:8 - prefer_final_fields
+warning - The value of the field '_isLoadingPOIs' isn't used - lib\Widget\simple_map_picker.dart:35:8 - unused_field
+warning - The operand can't be 'null', so the condition is always 'true' - lib\Widget\simple_map_picker.dart:48:38 - unnecessary_null_comparison
+warning - The '!' will have no effect because the receiver can't be null - lib\Widget\simple_map_picker.dart:50:43 - unnecessary_non_null_assertion
+warning - The '!' will have no effect because the receiver can't be null - lib\Widget\simple_map_picker.dart:52:36 - unnecessary_non_null_assertion
+warning - The '!' will have no effect because the receiver can't be null - lib\Widget\simple_map_picker.dart:52:63 - unnecessary_non_null_assertion
+   info - Statements in an if should be enclosed in a block - lib\Widget\simple_map_picker.dart:119:40 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\Widget\simple_map_picker.dart:120:42 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\Widget\simple_map_picker.dart:121:44 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\Widget\simple_map_picker.dart:122:45 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\Widget\simple_map_picker.dart:123:46 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\Widget\simple_map_picker.dart:124:45 - curly_braces_in_flow_control_structures
+   info - Empty catch block - lib\Widget\simple_map_picker.dart:206:17 - empty_catches
+   info - The private field _searchController could be 'final' - lib\Widget\simple_map_picker.dart:210:25 - prefer_final_fields
+   info - Don't invoke 'print' in production code - lib\Widget\simple_map_picker.dart:241:8 - avoid_print
+   info - Use a 'SizedBox' to add whitespace to a layout - lib\Widget\simple_map_picker.dart:363:35 - sized_box_for_whitespace
+   info - The local variable '_router' starts with an underscore - lib\main.dart:25:20 - no_leading_underscores_for_local_identifiers
+warning - The value of the local variable '_router' isn't used - lib\main.dart:25:20 - unused_local_variable
+warning - The operand can't be 'null', so the condition is always 'false' - lib\main.dart:43:40 - unnecessary_null_comparison
+warning - Dead code - lib\main.dart:43:49 - dead_code
+
+flutter : 105 issues 
+found. (ran in 2.3s)
+At line:1 char:1
++ flutter analyze 
+--no-fatal-infos 
+--no-fatal-warnings > 
+analysis_outpu ...
++ ~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
+~~~~~
+    + CategoryInfo    
+          : NotSpeci  
+  fied: (105 issues   
+  found. (ran in 2    
+.3s):String) [],     
+RemoteException
+    + FullyQualifiedE 
+   rrorId : NativeCo  
+  mmandError
+ 
