@@ -50,6 +50,15 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
+      - name: Copy docker-compose.yml to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          source: "docker-compose.yml"
+          target: "/root/solardashboard/"
+
       - name: Deploy to Server via SSH
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
         uses: appleboy/ssh-action@v1.0.0
@@ -59,7 +68,7 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD }}
           script: |
             set -e
-            DEPLOY_DIR="/root/solardashboard"git add .
+            DEPLOY_DIR="/root/solardashboard"
             mkdir -p $DEPLOY_DIR
             cd $DEPLOY_DIR
             
