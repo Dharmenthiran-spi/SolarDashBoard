@@ -1,7 +1,6 @@
 services:
   backend:
-    build:
-      context: ./Backend
+    image: ghcr.io/${IMAGE_NAME}:${IMAGE_TAG}
     container_name: solar_backend
     restart: unless-stopped
     ports:
