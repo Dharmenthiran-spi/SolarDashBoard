@@ -14,10 +14,7 @@ router = APIRouter(
 
 @router.post("/login", response_model=LoginResponse)
 async def login(credentials: LoginRequest, db: AsyncSession = Depends(get_db)):
-    """
-    Authenticate user credentials against CompanyEmployee and CustomerUsers tables.
-    Returns user profile with role information.
-    """
+
     username = credentials.username
     password = credentials.password
 
