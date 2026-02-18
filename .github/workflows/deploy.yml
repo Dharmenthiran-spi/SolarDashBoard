@@ -59,7 +59,7 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD }}
           script: |
             set -e
-            DEPLOY_DIR="/root/solardashboard"
+            DEPLOY_DIR="/root/solardashboard"git add .
             mkdir -p $DEPLOY_DIR
             cd $DEPLOY_DIR
             

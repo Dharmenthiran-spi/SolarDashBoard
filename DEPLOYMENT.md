@@ -35,18 +35,18 @@ To enable automated deployment, you must configure the following secrets in your
 ### SSH Credentials
 | Secret Name | Description | Example Value |
 |-------------|-------------|---------------|
-| `SSH_HOST` | IP Address of your VPS | `123.456.78.90` |
+| `SSH_HOST` | IP Address of your VPS | `157.173.222.91` |
 | `SSH_USERNAME` | SSH User (usually root) | `root` |
-| `SSH_PASSWORD` | SSH Password for your VPS | `your_vps_password` |
+| `SSH_PASSWORD` | SSH Password for your VPS | `SPIr+d000000` |
 
 ### Database Credentials
 | Secret Name | Description | Example Value |
 |-------------|-------------|---------------|
 | `DB_HOST` | Hostname of the DB service | `db` (Must be `db` for Docker) |
 | `DB_PORT` | Database Port | `3306` |
-| `DB_USER` | Database Username | `solar_user` |
-| `DB_PASSWORD` | Database Password | `secure_password` |
-| `DB_NAME` | Database Name | `solar_db` |
+| `DB_USER` | Database Username | `root` |
+| `DB_PASSWORD` | Database Password | `SPIr+d000000` |
+| `DB_NAME` | Database Name | `solardashboard` |
 
 ---
 
@@ -134,3 +134,39 @@ To clear old Docker images and free up space:
 ```bash
 docker image prune -f
 ```
+
+---
+
+## Troubleshooting: SSH Connection Timeout (`i/o timeout`)
+
+If you see `dial tcp ***:22: i/o timeout` in GitHub Actions, it means the runner cannot reach your server. Here is how to fix it:
+
+### 1. Check `SSH_HOST` Correctness
+Ensure the `SSH_HOST` secret in GitHub is set to your **VPS IP Address** (e.g., `157.173.222.91`). Do not include `http://` or port numbers.
+
+### 2. Hostinger VPS Firewall (Crucial)
+Hostinger has two firewalls. You must check both:
+- **hPanel Firewall**: 
+  1. Log in to [hpanel.hostinger.com](https://hpanel.hostinger.com).
+  2. Navigate to **VPS** -> **Settings** -> **Security** -> **Firewall**.
+  3. Ensure there is a rule allowing **Port 22 (SSH)** for all IPs, or at least for GitHub's IP ranges.
+- **UFW (Internal VPS Firewall)**:
+  1. SSH into your server manually (if possible).
+  2. Run `ufw allow 22/tcp`.
+  3. Run `ufw allow 8006/tcp` (for your backend).
+
+### 3. Verify SSH Service
+Ensure SSH is actually running on port 22:
+```bash
+# On your server
+sudo systemctl status ssh
+# Check if it's listening on port 22
+netstat -tulpn | grep :22
+```
+
+### 4. Test Connectivity Locally
+Try to SSH into the server from your own computer using the same credentials:
+```bash
+ssh root@your_vps_ip
+```
+If this fails with a timeout, the issue is definitely the VPS firewall or the IP address.
