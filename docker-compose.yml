@@ -25,18 +25,19 @@ services:
     environment:
       - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
       - MYSQL_DATABASE=${DB_NAME}
-      - MYSQL_USER=${DB_USER}
-      - MYSQL_PASSWORD=${DB_PASSWORD}
+      # Removed MYSQL_USER/PASSWORD to avoid conflict with 'root' user provided by user
     volumes:
       - db_data:/var/lib/mysql
     networks:
       - solar_network
     command: --default-authentication-plugin=mysql_native_password
     healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$${DB_PASSWORD}" ]
+      # Simple healthcheck to verify MySQL is responding
+      test: [ "CMD-SHELL", "mysqladmin ping -h localhost -u root -p${DB_PASSWORD} || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
 
 volumes:
   db_data:
