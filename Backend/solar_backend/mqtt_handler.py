@@ -90,11 +90,11 @@ class MQTTHandler:
         )
         db.add(new_telemetry)
         
-        # Broadcast to specific machine and entire company
+        # Broadcast to specific machine and entire company (Background tasks for zero UI latency)
         update_msg = {"type": "telemetry", "machine_id": machine_id, "data": payload}
-        await manager.broadcast_to_machine(machine_id, update_msg)
+        asyncio.create_task(manager.broadcast_to_machine(machine_id, update_msg))
         try:
-            await manager.broadcast_to_company(int(company_id), update_msg)
+            asyncio.create_task(manager.broadcast_to_company(int(company_id), update_msg))
         except Exception:
             pass
         
@@ -130,11 +130,11 @@ class MQTTHandler:
         if machine:
             machine.IsOnline = 1 if status_str.lower() != "offline" else 0
 
-        # Broadcast to specific machine and entire company
+        # Broadcast to specific machine and entire company (Background tasks for zero UI latency)
         update_msg = {"type": "status", "machine_id": machine_id, "data": payload}
-        await manager.broadcast_to_machine(machine_id, update_msg)
+        asyncio.create_task(manager.broadcast_to_machine(machine_id, update_msg))
         try:
-            await manager.broadcast_to_company(int(company_id), update_msg)
+            asyncio.create_task(manager.broadcast_to_company(int(company_id), update_msg))
         except Exception:
             pass
             

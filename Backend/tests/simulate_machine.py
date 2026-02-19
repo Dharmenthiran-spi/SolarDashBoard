@@ -45,7 +45,7 @@ async def simulate_single_machine(client, company_id, machine_serial):
             await client.publish(telemetry_topic, json.dumps(telemetry_payload))
             print(f"📈 [{machine_serial}] Telemetry Published: {telemetry_payload['battery']}V")
 
-            await asyncio.sleep(random.randint(5, 15)) # Random interval
+            await asyncio.sleep(random.randint(1, 3)) # High frequency for 'live' feeling
         except Exception as e:
             print(f"❌ Error in machine {machine_serial}: {e}")
             break
