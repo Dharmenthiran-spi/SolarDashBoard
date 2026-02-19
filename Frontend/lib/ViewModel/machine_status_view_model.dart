@@ -14,9 +14,9 @@ class MachineStatusViewModel extends ChangeNotifier {
   bool _isWebSocketActive = false;
 
   Map<int, MachineStatus> get liveStatuses => _liveStatuses;
-
   void startPolling() {
-    if (_isPolling || _isWebSocketActive) return; // Don't start if already polling or WS is active
+    if (_isPolling || _isWebSocketActive)
+      return; // Don't start if already polling or WS is active
     _isPolling = true;
     _pollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       fetchAllLiveStatus();
@@ -96,7 +96,7 @@ class MachineStatusViewModel extends ChangeNotifier {
           _handleWSDisconnect(companyId);
         },
       );
-      
+
       // Perform one full sync after connecting to ensure initial state is fresh
       fetchAllLiveStatus();
     } catch (e) {
