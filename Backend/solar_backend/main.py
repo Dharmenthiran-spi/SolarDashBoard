@@ -18,39 +18,59 @@ from solar_backend.routes import company, employee, customer, machine, report, d
 async def lifespan(app: FastAPI):
     import traceback
     try:
-        # Create tables
+        # Create tables (Handles new tables)
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
         
-        # Robust Migration: Add missing MQTT columns to Machine table
+        # Comprehensive Schema Synchronisation (Handles missing columns in existing tables)
         try:
             from sqlalchemy import text
+            from sqlalchemy.dialects.mysql import LONGBLOB, TEXT as MYSQL_TEXT
+            
             async with engine.connect() as conn:
-                # We use a separate connection to avoid transaction issues during ALTER
-                result = await conn.execute(text("SHOW COLUMNS FROM Machine"))
-                columns = [row[0].lower() for row in result.fetchall()]
-                
-                # Check for MqttUsername (case-insensitive check)
-                if "mqttusername" not in columns:
-                    print("MIGRATION: Adding MqttUsername column to Machine table")
-                    try:
-                        await conn.execute(text("ALTER TABLE Machine ADD COLUMN MqttUsername VARCHAR(255) UNIQUE AFTER image"))
-                        await conn.commit()
-                        print("MIGRATION: MqttUsername added successfully")
-                    except Exception as alter_e:
-                        print(f"MIGRATION ERROR (MqttUsername): {alter_e}")
-
-                # Check for MqttPassword
-                if "mqttpassword" not in columns:
-                    print("MIGRATION: Adding MqttPassword column to Machine table")
-                    try:
-                        await conn.execute(text("ALTER TABLE Machine ADD COLUMN MqttPassword VARCHAR(255) AFTER MqttUsername"))
-                        await conn.commit()
-                        print("MIGRATION: MqttPassword added successfully")
-                    except Exception as alter_e:
-                        print(f"MIGRATION ERROR (MqttPassword): {alter_e}")
-        except Exception as e:
-            print(f"CRITICAL MIGRATION ERROR: {e}")
+                print("Starting schema synchronization...")
+                for table_name, table in Base.metadata.tables.items():
+                    # Get existing columns from DB
+                    result = await conn.execute(text(f"SHOW COLUMNS FROM `{table_name}`"))
+                    existing_columns = {row[0].lower() for row in result.fetchall()}
+                    
+                    for column in table.columns:
+                        col_name = column.name.lower()
+                        if col_name not in existing_columns:
+                            print(f"SYNC: Adding missing column `{column.name}` to table `{table_name}`")
+                            
+                            # Determine column type for SQL
+                            col_type = str(column.type).upper()
+                            
+                            # Custom mapping for specific types
+                            if "VARCHAR" in col_type:
+                                pass # Keep as is
+                            elif "INTEGER" in col_type:
+                                col_type = "INT"
+                            elif "TEXT" in col_type:
+                                col_type = "TEXT"
+                            elif "FLOAT" in col_type:
+                                col_type = "FLOAT"
+                            elif "DATETIME" in col_type:
+                                col_type = "DATETIME"
+                            elif "JSON" in col_type:
+                                col_type = "JSON"
+                            elif "LONGBLOB" in col_type or "BLOB" in col_type:
+                                col_type = "LONGBLOB"
+                                
+                            nullable = "NULL" if column.nullable else "NOT NULL"
+                            unique = "UNIQUE" if column.unique else ""
+                            
+                            alter_query = f"ALTER TABLE `{table_name}` ADD COLUMN `{column.name}` {col_type} {nullable} {unique}"
+                            try:
+                                await conn.execute(text(alter_query))
+                                await conn.commit()
+                                print(f"SYNC: Column `{column.name}` added successfully.")
+                            except Exception as alter_err:
+                                print(f"SYNC ERROR: Failed to add column `{column.name}`: {alter_err}")
+                print("Schema synchronization complete.")
+        except Exception as sync_e:
+            print(f"CRITICAL SYNC ERROR: {sync_e}")
 
         # Start MQTT Handler
         from .mqtt_handler import MQTTHandler
