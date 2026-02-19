@@ -16,15 +16,7 @@ class Report(Base):
     EnergyConsumption = Column(Text) # Fixed typo 'Cunsumption'
     WaterUsage = Column(Text)
 
-    # RelationshipsCompanyID = Column(Integer, ForeignKey("Company.CompanyID"))
-    #     CustomerID = Column(Integer, ForeignKey("Customer.CustomerID"))
-    #     MachineID = Column(Integer, ForeignKey("Machine.TableID"))
-    #     StartTime = Column(DateTime)
-    #     EndTime = Column(DateTime)
-    #     Duration = Column(Text)
-    #     AreaCovered = Column(Text)
-    #     EnergyConsumption = Column(Text) # Fixed typo 'Cunsumption'
-    #     WaterUsage = Column(Text)
+    # Relationships
     company = relationship("Company", back_populates="reports")
     customer = relationship("Customer", back_populates="reports")
     machine = relationship("Machine", back_populates="reports")

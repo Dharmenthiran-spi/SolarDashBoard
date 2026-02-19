@@ -17,7 +17,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final bool isMobile = Responsive.isMobile(context);
-    
+
     final globalState = Provider.of<GlobalState>(context);
     final List<Map<String, dynamic>> navigationItems = [];
 
@@ -30,22 +30,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
         },
         {
           'icon': Icons.people,
-          'label': 'Company Employees',
-          'route': '${RouteNames.employees}/company',
-        },
-        {
-          'icon': Icons.people,
           'label': 'Customers',
           'route': RouteNames.customers,
         },
       ]);
     } else if (globalState.isCustomerUser && globalState.isAdmin) {
-       // For Customer Admin, show 'Users' (which links to their Customer details/User list)
-       navigationItems.add({
-         'icon': Icons.people,
-         'label': 'Users',
-         'route': RouteNames.customers,
-       });
+      // For Customer Admin, show 'Users' (which links to their Customer details/User list)
+      navigationItems.add({
+        'icon': Icons.people,
+        'label': 'Users',
+        'route': RouteNames.customers,
+      });
     }
 
     return MainLayout(

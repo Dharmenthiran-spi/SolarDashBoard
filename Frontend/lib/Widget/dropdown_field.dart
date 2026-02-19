@@ -4,7 +4,7 @@ import '../Config/Themes/app_text_styles.dart';
 
 class GenericDropdownProvider<T> extends ChangeNotifier {
   final TextEditingController controller;
-  final List<T> items;
+  List<T> items;
   final String Function(T) itemLabel;
   final Function(T)? onSelected;
   final LayerLink _layerLink = LayerLink();
@@ -29,9 +29,20 @@ class GenericDropdownProvider<T> extends ChangeNotifier {
   @override
   void dispose() {
     textFieldFocusNode.removeListener(_handleFocusChange);
+    // Remove dropdown without notifying to avoid "locked widget tree" error
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+    showDropdown = false;
     textFieldFocusNode.dispose();
-    _removeDropdown();
     super.dispose();
+  }
+
+  void updateItems(List<T> newItems) {
+    items = List.from(newItems);
+    filteredItems = List.from(newItems);
+    if (showDropdown) {
+      notifyListeners();
+    }
   }
 
   void _handleFocusChange() {
@@ -220,7 +231,7 @@ class _DropdownFieldState<T> extends State<DropdownField<T>> {
   void didUpdateWidget(covariant DropdownField<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.items != widget.items) {
-      _provider.filteredItems = List.from(widget.items);
+      _provider.updateItems(widget.items);
     }
   }
 

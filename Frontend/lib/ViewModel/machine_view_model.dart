@@ -263,13 +263,18 @@ class MachineViewModel extends ChangeNotifier {
       final customerId = globalState.filterCustomerId;
       if (customerId != null) {
         selectedCustomerId = customerId;
-        // Find name from dropdown (should be populated)
-         final customer = dropdownCustomers.firstWhere(
-          (c) => c.id == customerId, 
-          orElse: () => Customer(id: 0, name: '')
+        // Find name from dropdown if populated
+        final customer = dropdownCustomers.firstWhere(
+          (c) => c.id == customerId,
+          orElse: () => Customer(id: 0, name: ''),
         );
         customerController.text = customer.name ?? '';
       }
+    }
+
+    // Eagerly fetch dropdown data if it hasn't been loaded yet
+    if (dropdownCompanies.isEmpty || dropdownCustomers.isEmpty) {
+      _fetchDropdownData();
     }
     notifyListeners();
   }
@@ -301,6 +306,11 @@ class MachineViewModel extends ChangeNotifier {
         '';
 
     _selectedImageBase64 = machine.image; // Use existing base64 string
+
+    // Eagerly fetch dropdown data if it hasn't been loaded yet
+    if (dropdownCompanies.isEmpty || dropdownCustomers.isEmpty) {
+      _fetchDropdownData();
+    }
     notifyListeners();
   }
 

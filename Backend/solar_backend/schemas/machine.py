@@ -1,6 +1,6 @@
 import base64
 from pydantic import BaseModel, field_validator, ConfigDict
-from typing import Optional, List
+from typing import Optional, List, Any
 
 class MachineBase(BaseModel):
     MachineName: str
@@ -8,14 +8,14 @@ class MachineBase(BaseModel):
     Description: Optional[str] = None
     CompanyID: Optional[int] = None
     CustomerID: Optional[int] = None
-    image: Optional[str] = None
+    image: Optional[Any] = None
     MqttUsername: Optional[str] = None
     MqttPassword: Optional[str] = None
     IsOnline: Optional[int] = 0
 
 class MachineCreate(MachineBase):
 
-    @field_validator('image')
+    @field_validator('image', mode='before')
     @classmethod
     def validate_image(cls, v):
         if not v:
@@ -26,7 +26,7 @@ class MachineCreate(MachineBase):
                     v = v.split(',')[-1]
                 return base64.b64decode(v)
             except Exception:
-                return None
+                return v # Return as is if decoding fails, let SQLAlchemy handle it or fail later
         return v
 
 class MachineUpdate(BaseModel):
@@ -36,12 +36,12 @@ class MachineUpdate(BaseModel):
     Description: Optional[str] = None
     CompanyID: Optional[int] = None
     CustomerID: Optional[int] = None
-    image: Optional[str] = None
+    image: Optional[Any] = None
     MqttUsername: Optional[str] = None
     MqttPassword: Optional[str] = None
     IsOnline: Optional[int] = None
 
-    @field_validator('image')
+    @field_validator('image', mode='before')
     @classmethod
     def validate_image(cls, v):
         if not v:
@@ -52,7 +52,7 @@ class MachineUpdate(BaseModel):
                     v = v.split(',')[-1]
                 return base64.b64decode(v)
             except Exception:
-                return None
+                return v
         return v
 
 class MachineResponse(MachineBase):

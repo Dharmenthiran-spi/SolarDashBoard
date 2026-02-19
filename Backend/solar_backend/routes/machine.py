@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, FastAPI
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import List
@@ -16,28 +16,39 @@ router = APIRouter(
 
 @router.post("", response_model=MachineResponse, status_code=status.HTTP_201_CREATED)
 async def create_machine(machine: MachineCreate, db: AsyncSession = Depends(get_db)):
-    # Check if SerialNo already exists
-    stmt = select(Machine).filter(Machine.SerialNo == machine.SerialNo)
-    result = await db.execute(stmt)
-    if result.scalar_one_or_none():
+    try:
+        # Check if SerialNo already exists
+        stmt = select(Machine).filter(Machine.SerialNo == machine.SerialNo)
+        result = await db.execute(stmt)
+        if result.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Machine with serial number '{machine.SerialNo}' already exists."
+            )
+            
+        machine_data = machine.model_dump()
+        if not machine_data.get("MqttUsername"):
+            machine_data["MqttUsername"] = f"user_{machine.SerialNo}"
+        if not machine_data.get("MqttPassword"):
+            # Simple random password for demo, should be more secure in production
+            import secrets
+            machine_data["MqttPassword"] = secrets.token_urlsafe(12)
+            
+        new_machine = Machine(**machine_data)
+        db.add(new_machine)
+        await db.commit()
+        await db.refresh(new_machine)
+        return new_machine
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error creating machine: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Machine with serial number '{machine.SerialNo}' already exists."
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal Server Error: {str(e)}"
         )
-        
-    machine_data = machine.model_dump()
-    if not machine_data.get("MqttUsername"):
-        machine_data["MqttUsername"] = f"user_{machine.SerialNo}"
-    if not machine_data.get("MqttPassword"):
-        # Simple random password for demo, should be more secure in production
-        import secrets
-        machine_data["MqttPassword"] = secrets.token_urlsafe(12)
-        
-    new_machine = Machine(**machine_data)
-    db.add(new_machine)
-    await db.commit()
-    await db.refresh(new_machine)
-    return new_machine
 
 @router.get("", response_model=List[MachineResponse])
 async def get_machines(customer_id: int = None, db: AsyncSession = Depends(get_db)):
