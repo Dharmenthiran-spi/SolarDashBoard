@@ -71,15 +71,15 @@ class MQTTHandler:
                     return
 
                 if msg_type == "telemetry":
-                    await self.process_telemetry(db, machine.TableID, payload)
+                    await self.process_telemetry(db, machine.TableID, company_id, payload)
                 elif msg_type == "status":
-                    await self.process_status(db, machine.TableID, payload)
+                    await self.process_status(db, machine.TableID, company_id, payload)
                 
                 await db.commit()
         except Exception as e:
             logger.error(f"Error handling MQTT message: {e}")
 
-    async def process_telemetry(self, db: AsyncSession, machine_id: int, payload: dict):
+    async def process_telemetry(self, db: AsyncSession, machine_id: int, company_id: str, payload: dict):
         new_telemetry = Telemetry(
             MachineID=machine_id,
             BatteryLevel=payload.get("battery"),
@@ -89,10 +89,18 @@ class MQTTHandler:
             AdditionalData=payload.get("extra")
         )
         db.add(new_telemetry)
-        await manager.broadcast_to_machine(machine_id, {"type": "telemetry", "data": payload})
+        
+        # Broadcast to specific machine and entire company
+        update_msg = {"type": "telemetry", "machine_id": machine_id, "data": payload}
+        await manager.broadcast_to_machine(machine_id, update_msg)
+        try:
+            await manager.broadcast_to_company(int(company_id), update_msg)
+        except Exception:
+            pass
+        
         logger.info(f"Stored telemetry for machine {machine_id}")
 
-    async def process_status(self, db: AsyncSession, machine_id: int, payload: dict):
+    async def process_status(self, db: AsyncSession, machine_id: int, company_id: str, payload: dict):
         # Update MachineStatus (Live state)
         stmt = select(MachineStatus).filter(MachineStatus.MachineID == machine_id)
         result = await db.execute(stmt)
@@ -122,7 +130,14 @@ class MQTTHandler:
         if machine:
             machine.IsOnline = 1 if status_str.lower() != "offline" else 0
 
-        await manager.broadcast_to_machine(machine_id, {"type": "status", "data": payload})
+        # Broadcast to specific machine and entire company
+        update_msg = {"type": "status", "machine_id": machine_id, "data": payload}
+        await manager.broadcast_to_machine(machine_id, update_msg)
+        try:
+            await manager.broadcast_to_company(int(company_id), update_msg)
+        except Exception:
+            pass
+            
         logger.info(f"Updated status for machine {machine_id}")
 
     async def publish_command(self, company_id: int, machine_serial: str, command: dict):
