@@ -26,7 +26,7 @@ class MachineCreate(MachineBase):
                     v = v.split(',')[-1]
                 return base64.b64decode(v)
             except Exception:
-                return v # Return as is if decoding fails, let SQLAlchemy handle it or fail later
+                return v
         return v
 
 class MachineUpdate(BaseModel):
