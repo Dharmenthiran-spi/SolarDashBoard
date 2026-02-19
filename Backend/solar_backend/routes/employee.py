@@ -6,7 +6,7 @@ from ..database import get_db
 from ..models.employee import CompanyEmployee, CustomerUsers
 from ..models.company import Company
 from ..models.customer import Customer
-from ..security import hash_password, verify_password
+from ..security import hash_password, verify_password, get_current_user
 from ..schemas.employee import (
     CompanyEmployeeCreate, CompanyEmployeeUpdate, CompanyEmployeeResponse,
     CustomerUsersCreate, CustomerUsersUpdate, CustomerUsersResponse,
@@ -15,7 +15,8 @@ from ..schemas.employee import (
 
 router = APIRouter(
     prefix="/employees",
-    tags=["Employees"]
+    tags=["Employees"],
+    dependencies=[Depends(get_current_user)]
 )
 
 # Company Employee Routes

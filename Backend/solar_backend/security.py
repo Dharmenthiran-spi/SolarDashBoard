@@ -43,10 +43,12 @@ def verify_token(token: str):
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         return payload
-    except Exception:
+    except Exception as e:
+        print(f"Token validation error: {e}")
         return None
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
+    print(f"Validating token: {token[:10]}...")
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -54,5 +56,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     )
     payload = verify_token(token)
     if payload is None:
+        print("Token verification failed (payload is None)")
         raise credentials_exception
+    print(f"Token validated successfully for sub: {payload.get('sub')}")
     return payload

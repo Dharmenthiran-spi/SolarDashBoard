@@ -20,17 +20,14 @@ async def login(credentials: LoginRequest, db: AsyncSession = Depends(get_db)):
 
     # 🔹 DEFAULT SYSTEM ADMIN LOGIN (Fallback)
     if username == "spi" and password == "12345":
-        # Check if any Admin exists in CompanyEmployee
-        admin_check = await db.execute(
-            select(CompanyEmployee).filter(CompanyEmployee.Privilege == "Admin")
-        )
-        admin_exists = admin_check.scalars().first()
-
-        if admin_exists:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Admin already exists. Please login with your credentials."
-            )
+        # 🔹 GENERATE JWT TOKEN for fallback admin
+        token_data = {
+            "sub": "spi",
+            "user_type": "CompanyEmployee",
+            "user_id": 0,
+            "privilege": "Admin"
+        }
+        access_token = create_access_token(data=token_data)
 
         # Return Super User session
         return LoginResponse(
@@ -39,7 +36,9 @@ async def login(credentials: LoginRequest, db: AsyncSession = Depends(get_db)):
             user_id=0,
             username="spi",
             company_id=0,
-            employee_name="System Administrator"
+            employee_name="System Administrator",
+            access_token=access_token,
+            token_type="bearer"
         )
     
     # Try to find user in CompanyEmployee table

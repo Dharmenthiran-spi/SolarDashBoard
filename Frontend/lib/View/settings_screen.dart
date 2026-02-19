@@ -30,6 +30,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
         },
         {
           'icon': Icons.people,
+          'label': 'Company Employees',
+          'route': '${RouteNames.employees}/company',
+        },
+        {
+          'icon': Icons.people,
           'label': 'Customers',
           'route': RouteNames.customers,
         },
