@@ -4,7 +4,7 @@ import 'dart:io';
 class ApiConfig {
   /// Cloud: "157.173.222.91"
   static const String? _customServerIP =
-      null; // "157.173.222.91"; // Set specific IP if needed
+      "157.173.222.91"; // "157.173.222.91"; // Set specific IP if needed
 
   static String get baseUrl {
     if (_customServerIP != null) return "http://$_customServerIP:8006";
