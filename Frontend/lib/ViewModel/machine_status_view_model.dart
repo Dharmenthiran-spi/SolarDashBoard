@@ -11,13 +11,14 @@ class MachineStatusViewModel extends ChangeNotifier {
   final Map<int, WebSocketChannel> _channels = {};
   Timer? _pollingTimer;
   bool _isPolling = false;
+  bool _isWebSocketActive = false;
 
   Map<int, MachineStatus> get liveStatuses => _liveStatuses;
 
   void startPolling() {
-    if (_isPolling) return;
+    if (_isPolling || _isWebSocketActive) return; // Don't start if already polling or WS is active
     _isPolling = true;
-    _pollingTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+    _pollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       fetchAllLiveStatus();
     });
     fetchAllLiveStatus();
@@ -26,6 +27,13 @@ class MachineStatusViewModel extends ChangeNotifier {
   void stopPolling() {
     _pollingTimer?.cancel();
     _isPolling = false;
+  }
+
+  void _handleWSDisconnect(int companyId) {
+    _isWebSocketActive = false;
+    _disconnectFromCompany(companyId);
+    startPolling(); // Fallback to polling
+    debugPrint('WS Lost: Resuming 5s polling');
   }
 
   /// Connect to WebSocket for a specific machine for real-time updates
@@ -56,6 +64,51 @@ class MachineStatusViewModel extends ChangeNotifier {
     }
   }
 
+  /// Connect to WebSocket for an entire company for real-time fleet updates
+  void connectToCompany(int companyId) {
+    if (_channels.containsKey(-companyId))
+      return; // Use negative ID for company channels
+
+    final wsUrl = "${ApiConfig.wsUrl}/realtime/company/$companyId";
+    try {
+      final channel = WebSocketChannel.connect(Uri.parse(wsUrl));
+      _channels[-companyId] = channel;
+
+      channel.stream.listen(
+        (message) {
+          if (!_isWebSocketActive) {
+            _isWebSocketActive = true;
+            stopPolling(); // Disable polling while WS is healthy
+            debugPrint('WS Active: Pausing 5s polling');
+          }
+          final Map<String, dynamic> update = json.decode(message);
+          final machineId = update['machine_id'];
+          if (machineId != null) {
+            _handleRealtimeUpdate(machineId, update);
+          }
+        },
+        onError: (error) {
+          debugPrint('WS Error for company $companyId: $error');
+          _handleWSDisconnect(companyId);
+        },
+        onDone: () {
+          debugPrint('WS Closed for company $companyId');
+          _handleWSDisconnect(companyId);
+        },
+      );
+      
+      // Perform one full sync after connecting to ensure initial state is fresh
+      fetchAllLiveStatus();
+    } catch (e) {
+      debugPrint('WS Connection failed for company $companyId: $e');
+    }
+  }
+
+  void _disconnectFromCompany(int companyId) {
+    _channels[-companyId]?.sink.close();
+    _channels.remove(-companyId);
+  }
+
   void _disconnectFromMachine(int machineId) {
     _channels[machineId]?.sink.close();
     _channels.remove(machineId);
@@ -64,16 +117,17 @@ class MachineStatusViewModel extends ChangeNotifier {
   void _handleRealtimeUpdate(int machineId, Map<String, dynamic> update) {
     final type = update['type'];
     final data = update['data'];
-    
-    final currentStatus = _liveStatuses[machineId] ?? 
+
+    final currentStatus =
+        _liveStatuses[machineId] ??
         MachineStatus(
-          statusId: 0, 
-          machineId: machineId, 
-          status: 'Online', 
-          energyValue: 0, 
-          waterValue: 0, 
-          areaValue: 0, 
-          timestamp: DateTime.now()
+          statusId: 0,
+          machineId: machineId,
+          status: 'Online',
+          energyValue: 0,
+          waterValue: 0,
+          areaValue: 0,
+          timestamp: DateTime.now(),
         );
 
     late MachineStatus updatedStatus;
@@ -89,10 +143,13 @@ class MachineStatusViewModel extends ChangeNotifier {
         areaValue: currentStatus.areaValue,
         timestamp: DateTime.now(),
         // New values from telemetry
-        batteryLevel: (data['battery'] ?? currentStatus.batteryLevel).toDouble(),
-        batteryVoltage: (data['solar_v'] ?? currentStatus.batteryVoltage).toDouble(),
+        batteryLevel: (data['battery'] ?? currentStatus.batteryLevel)
+            .toDouble(),
+        batteryVoltage: (data['solar_v'] ?? currentStatus.batteryVoltage)
+            .toDouble(),
         waterLevel: (data['water'] ?? currentStatus.waterLevel).toDouble(),
-        brushTemp: (data['extra']?['temp'] ?? currentStatus.brushTemp).toDouble(),
+        brushTemp: (data['extra']?['temp'] ?? currentStatus.brushTemp)
+            .toDouble(),
         // Keep others
         mode: currentStatus.mode,
         timer: currentStatus.timer,
@@ -152,10 +209,8 @@ class MachineStatusViewModel extends ChangeNotifier {
         final List data = response['data'];
         for (var item in data) {
           final backendStatus = MachineStatus.fromJson(item);
-          // Only update if we don't have a newer WebSocket update or IF it's the first time
-          if (!_liveStatuses.containsKey(backendStatus.machineId)) {
-            _liveStatuses[backendStatus.machineId] = backendStatus;
-          }
+          // Update machine status (Overwrite existing)
+          _liveStatuses[backendStatus.machineId] = backendStatus;
         }
         notifyListeners();
       }

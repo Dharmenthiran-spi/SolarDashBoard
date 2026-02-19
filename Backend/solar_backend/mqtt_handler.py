@@ -1,27 +1,29 @@
 import json
 import logging
 import asyncio
-from typing import Optional
+from typing import Optional, List, Dict
 from aiomqtt import Client, Message, MqttError
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, update
+from redis.asyncio import Redis
 
 from .database import AsyncSessionLocal
 from .models.machine import Machine
-from .models.telemetry import Telemetry
 from .models.machine_status import MachineStatus
 from .routes.realtime import manager
 
 logger = logging.getLogger(__name__)
 
 class MQTTHandler:
-    def __init__(self, broker: str, port: int, username: Optional[str] = None, password: Optional[str] = None, use_tls: bool = False):
+    def __init__(self, broker: str, port: int, username: Optional[str] = None, 
+                 password: Optional[str] = None, use_tls: bool = False,
+                 redis_client: Optional[Redis] = None):
         self.broker = broker
         self.port = port
         self.username = username
         self.password = password
         self.use_tls = use_tls
         self.client: Optional[Client] = None
+        self.redis = redis_client
 
     async def start(self):
         while True:
@@ -31,120 +33,113 @@ class MQTTHandler:
                     port=self.port,
                     username=self.username,
                     password=self.password,
-                    # tls_context=... (to be added with TLS guide)
                 ) as client:
                     self.client = client
-                    logger.info("Connected to MQTT Broker")
-                    
-                    # Subscribe to telemetry, status, and LWT
+                    logger.info("Connected to MQTT Broker (Optimized)")
                     await client.subscribe("company/+/machine/+/telemetry")
                     await client.subscribe("company/+/machine/+/status")
-                    
                     async for message in client.messages:
                         await self.handle_message(message)
             except MqttError as e:
                 logger.error(f"MQTT Error: {e}. Retrying in 5 seconds...")
                 await asyncio.sleep(5)
             except Exception as e:
-                logger.error(f"Unexpected MQTT Error: {e}. Retrying in 5 seconds...")
+                logger.error(f"Unexpected MQTT Error: {e}")
                 await asyncio.sleep(5)
 
     async def handle_message(self, message: Message):
         topic_parts = message.topic.value.split('/')
-        if len(topic_parts) < 5:
-            return
+        if len(topic_parts) < 5: return
 
-        company_id = topic_parts[1]
-        machine_serial = topic_parts[3] # We'll use SerialNo as machine identifier in topics
-        msg_type = topic_parts[4]
+        cid, serial, msg_type = topic_parts[1], topic_parts[3], topic_parts[4]
 
         try:
             payload = json.loads(message.payload.decode())
-            async with AsyncSessionLocal() as db:
-                # Find machine by SerialNo
-                stmt = select(Machine).filter(Machine.SerialNo == machine_serial)
-                result = await db.execute(stmt)
-                machine = result.scalar_one_or_none()
-                
-                if not machine:
-                    logger.warning(f"Machine with SerialNo {machine_serial} not found")
-                    return
+            
+            # Find MachineID from Redis or DB
+            machine_id = await self.get_machine_id(serial)
+            if not machine_id: return
 
-                if msg_type == "telemetry":
-                    await self.process_telemetry(db, machine.TableID, company_id, payload)
-                elif msg_type == "status":
-                    await self.process_status(db, machine.TableID, company_id, payload)
+            if msg_type == "telemetry":
+                await self.process_telemetry(machine_id, int(cid), payload)
+            elif msg_type == "status":
+                await self.process_status(machine_id, int(cid), payload)
                 
-                await db.commit()
         except Exception as e:
-            logger.error(f"Error handling MQTT message: {e}")
+            logger.error(f"Error handling message on {message.topic}: {e}")
 
-    async def process_telemetry(self, db: AsyncSession, machine_id: int, company_id: str, payload: dict):
-        new_telemetry = Telemetry(
-            MachineID=machine_id,
-            BatteryLevel=payload.get("battery"),
-            SolarVoltage=payload.get("solar_v"),
-            SolarCurrent=payload.get("solar_a"),
-            WaterLevel=payload.get("water"),
-            AdditionalData=payload.get("extra")
-        )
-        db.add(new_telemetry)
-        
-        # Broadcast to specific machine and entire company (Background tasks for zero UI latency)
-        update_msg = {"type": "telemetry", "machine_id": machine_id, "data": payload}
-        asyncio.create_task(manager.broadcast_to_machine(machine_id, update_msg))
-        try:
-            asyncio.create_task(manager.broadcast_to_company(int(company_id), update_msg))
-        except Exception:
-            pass
-        
-        logger.info(f"Stored telemetry for machine {machine_id}")
+    async def get_machine_id(self, serial: str) -> Optional[int]:
+        """Get Machine TableID from Redis Cache or MySQL."""
+        cache_key = f"machine:serial:{serial}"
+        if self.redis:
+            cached = await self.redis.get(cache_key)
+            if cached: return int(cached)
 
-    async def process_status(self, db: AsyncSession, machine_id: int, company_id: str, payload: dict):
-        # Update MachineStatus (Live state)
-        stmt = select(MachineStatus).filter(MachineStatus.MachineID == machine_id)
-        result = await db.execute(stmt)
-        status_entry = result.scalar_one_or_none()
+        async with AsyncSessionLocal() as db:
+            stmt = select(Machine.TableID).filter(Machine.SerialNo == serial)
+            result = await db.execute(stmt)
+            tid = result.scalar_one_or_none()
+            if tid and self.redis:
+                await self.redis.set(cache_key, tid, ex=3600) # Cache for 1 hour
+            return tid
 
+    async def process_telemetry(self, machine_id: int, company_id: int, payload: dict):
+        # 1. Delta Detection via Redis
+        changed_fields = {}
+        if self.redis:
+            state_key = f"machine:state:{machine_id}"
+            old_state = await self.redis.hgetall(state_key) or {}
+            
+            for k, v in payload.items():
+                if str(v) != old_state.get(k):
+                    changed_fields[k] = v
+            
+            if changed_fields:
+                await self.redis.hset(state_key, mapping={k: str(v) for k, v in payload.items()})
+        else:
+            changed_fields = payload # Fallback if Redis is down
+
+        # 2. Targeted Broadcast (Only changed fields)
+        if changed_fields:
+            update_msg = {"type": "telemetry", "machine_id": machine_id, "data": changed_fields}
+            asyncio.create_task(manager.broadcast_to_machine(machine_id, update_msg))
+            asyncio.create_task(manager.broadcast_to_company(company_id, update_msg))
+
+    async def process_status(self, machine_id: int, company_id: int, payload: dict):
         status_str = payload.get("status", "Online")
         
-        if status_entry:
-            status_entry.Status = status_str
-            status_entry.EnergyValue = payload.get("energy", status_entry.EnergyValue)
-            status_entry.WaterValue = payload.get("water", status_entry.WaterValue)
-            status_entry.AreaValue = payload.get("area", status_entry.AreaValue)
-        else:
-            status_entry = MachineStatus(
-                MachineID=machine_id,
-                Status=status_str,
-                EnergyValue=payload.get("energy", 0.0),
-                WaterValue=payload.get("water", 0.0),
-                AreaValue=payload.get("area", 0.0)
-            )
-            db.add(status_entry)
+        # In-memory/Redis update first
+        if self.redis:
+            await self.redis.hset(f"machine:state:{machine_id}", "status", status_str)
 
-        # Also update Machine.IsOnline
-        stmt = select(Machine).filter(Machine.TableID == machine_id)
-        res = await db.execute(stmt)
-        machine = res.scalar_one_or_none()
-        if machine:
-            machine.IsOnline = 1 if status_str.lower() != "offline" else 0
+        # Batch update machine status in DB (Non-blocking)
+        async def update_db():
+            async with AsyncSessionLocal() as db:
+                await db.execute(
+                    update(MachineStatus)
+                    .where(MachineStatus.MachineID == machine_id)
+                    .values(
+                        Status=status_str,
+                        EnergyValue=payload.get("energy", 0.0),
+                        WaterValue=payload.get("water", 0.0),
+                        AreaValue=payload.get("area", 0.0)
+                    )
+                )
+                await db.execute(
+                    update(Machine)
+                    .where(Machine.TableID == machine_id)
+                    .values(IsOnline=1 if status_str.lower() != "offline" else 0)
+                )
+                await db.commit()
+        
+        asyncio.create_task(update_db())
 
-        # Broadcast to specific machine and entire company (Background tasks for zero UI latency)
+        # Broadcast always for status changes
         update_msg = {"type": "status", "machine_id": machine_id, "data": payload}
         asyncio.create_task(manager.broadcast_to_machine(machine_id, update_msg))
-        try:
-            asyncio.create_task(manager.broadcast_to_company(int(company_id), update_msg))
-        except Exception:
-            pass
-            
-        logger.info(f"Updated status for machine {machine_id}")
+        asyncio.create_task(manager.broadcast_to_company(company_id, update_msg))
 
     async def publish_command(self, company_id: int, machine_serial: str, command: dict):
-        if not self.client:
-            logger.error("MQTT client not connected")
-            return
-        
+        if not self.client: return
         topic = f"company/{company_id}/machine/{machine_serial}/command"
         await self.client.publish(topic, json.dumps(command))
-        logger.info(f"Published command to {topic}")
