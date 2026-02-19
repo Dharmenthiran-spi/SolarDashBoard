@@ -12,10 +12,25 @@ import '../Widget/main_layout.dart';
 import '../Config/Themes/theme_view_model.dart';
 import '../Services/machine_service.dart';
 
-class MachineDetailScreen extends StatelessWidget {
+class MachineDetailScreen extends StatefulWidget {
   final Machine machine;
 
   const MachineDetailScreen({super.key, required this.machine});
+
+  @override
+  State<MachineDetailScreen> createState() => _MachineDetailScreenState();
+}
+
+class _MachineDetailScreenState extends State<MachineDetailScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Connect to WebSocket for real-time updates when screen opens
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<MachineStatusViewModel>(context, listen: false)
+          .connectToMachine(widget.machine.id);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +42,7 @@ class MachineDetailScreen extends StatelessWidget {
       showSidebar: false,
       body: Consumer2<MachineStatusViewModel, DashboardViewModel>(
         builder: (context, statusVM, dashVM, child) {
-          final status = statusVM.liveStatuses[machine.id];
+          final status = statusVM.liveStatuses[widget.machine.id];
           final reports = dashVM.machineReports;
 
           return SingleChildScrollView(
@@ -71,14 +86,14 @@ class MachineDetailScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  machine.name,
+                  widget.machine.name,
                   style: GoogleFonts.outfit(
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
                 Text(
-                  'Serial: ${machine.serialNo}',
+                  'Serial: ${widget.machine.serialNo}',
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     color: Colors.grey,
@@ -90,13 +105,13 @@ class MachineDetailScreen extends StatelessWidget {
                   children: [
                     _buildCredentialTag(
                       'MQTT USER',
-                      machine.mqttUsername ?? '---',
+                      widget.machine.mqttUsername ?? '---',
                       isDark,
                     ),
                     const SizedBox(width: 8),
                     _buildCredentialTag(
                       'MQTT PASS',
-                      machine.mqttPassword ?? '---',
+                      widget.machine.mqttPassword ?? '---',
                       isDark,
                       isPassword: true,
                     ),
@@ -142,6 +157,7 @@ class MachineDetailScreen extends StatelessWidget {
             style: GoogleFonts.jetBrainsMono(
               fontSize: 10,
               fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : Colors.black,
             ),
           ),
         ],
@@ -158,11 +174,11 @@ class MachineDetailScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.blueAccent.withOpacity(0.2)),
       ),
-      child: machine.image != null
+      child: widget.machine.image != null
           ? ClipRRect(
               borderRadius: BorderRadius.circular(20),
               child: Image.memory(
-                base64Decode(machine.image!),
+                base64Decode(widget.machine.image!),
                 fit: BoxFit.cover,
               ),
             )
@@ -175,7 +191,7 @@ class MachineDetailScreen extends StatelessWidget {
   }
 
   Widget _buildLiveStatusBadge(MachineStatus? status) {
-    final isMachineOnline = machine.isOnline == 1;
+    final isMachineOnline = widget.machine.isOnline == 1;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
@@ -564,9 +580,9 @@ class MachineDetailScreen extends StatelessWidget {
   ) {
     return Expanded(
       child: InkWell(
-        onTap: () async {
+                onTap: () async {
           try {
-            await MachineService.sendCommand(machine.id, {"command": cmd});
+            await MachineService.sendCommand(widget.machine.id, {"command": cmd});
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('Command "$label" dispatched to MQTT broker'),

@@ -1,24 +1,25 @@
 import 'dart:async';
-import 'dart:math';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 import '../Models/machine_status.dart';
 import '../Services/machine_status_service.dart';
+import '../Config/api_config.dart';
 
 class MachineStatusViewModel extends ChangeNotifier {
   final Map<int, MachineStatus> _liveStatuses = {};
+  final Map<int, WebSocketChannel> _channels = {};
   Timer? _pollingTimer;
   bool _isPolling = false;
-  final Random _random = Random();
 
   Map<int, MachineStatus> get liveStatuses => _liveStatuses;
 
   void startPolling() {
     if (_isPolling) return;
     _isPolling = true;
-    _pollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+    _pollingTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
       fetchAllLiveStatus();
     });
-    // Initial fetch
     fetchAllLiveStatus();
   }
 
@@ -27,121 +28,148 @@ class MachineStatusViewModel extends ChangeNotifier {
     _isPolling = false;
   }
 
+  /// Connect to WebSocket for a specific machine for real-time updates
+  void connectToMachine(int machineId) {
+    if (_channels.containsKey(machineId)) return;
+
+    final wsUrl = "${ApiConfig.wsUrl}/realtime/$machineId";
+    try {
+      final channel = WebSocketChannel.connect(Uri.parse(wsUrl));
+      _channels[machineId] = channel;
+
+      channel.stream.listen(
+        (message) {
+          final data = json.decode(message);
+          _handleRealtimeUpdate(machineId, data);
+        },
+        onError: (error) {
+          debugPrint('WS Error for machine $machineId: $error');
+          _disconnectFromMachine(machineId);
+        },
+        onDone: () {
+          debugPrint('WS Closed for machine $machineId');
+          _disconnectFromMachine(machineId);
+        },
+      );
+    } catch (e) {
+      debugPrint('WS Connection failed for machine $machineId: $e');
+    }
+  }
+
+  void _disconnectFromMachine(int machineId) {
+    _channels[machineId]?.sink.close();
+    _channels.remove(machineId);
+  }
+
+  void _handleRealtimeUpdate(int machineId, Map<String, dynamic> update) {
+    final type = update['type'];
+    final data = update['data'];
+    
+    final currentStatus = _liveStatuses[machineId] ?? 
+        MachineStatus(
+          statusId: 0, 
+          machineId: machineId, 
+          status: 'Online', 
+          energyValue: 0, 
+          waterValue: 0, 
+          areaValue: 0, 
+          timestamp: DateTime.now()
+        );
+
+    late MachineStatus updatedStatus;
+
+    if (type == 'telemetry') {
+      // Merge telemetry data into existing status
+      updatedStatus = MachineStatus(
+        statusId: currentStatus.statusId,
+        machineId: machineId,
+        status: currentStatus.status,
+        energyValue: currentStatus.energyValue,
+        waterValue: currentStatus.waterValue,
+        areaValue: currentStatus.areaValue,
+        timestamp: DateTime.now(),
+        // New values from telemetry
+        batteryLevel: (data['battery'] ?? currentStatus.batteryLevel).toDouble(),
+        batteryVoltage: (data['solar_v'] ?? currentStatus.batteryVoltage).toDouble(),
+        waterLevel: (data['water'] ?? currentStatus.waterLevel).toDouble(),
+        brushTemp: (data['extra']?['temp'] ?? currentStatus.brushTemp).toDouble(),
+        // Keep others
+        mode: currentStatus.mode,
+        timer: currentStatus.timer,
+        isCharging: currentStatus.isCharging,
+        pumpStatus: currentStatus.pumpStatus,
+        brushRPM: currentStatus.brushRPM,
+        isBrushJam: currentStatus.isBrushJam,
+        speed: currentStatus.speed,
+        direction: currentStatus.direction,
+        emergencyStop: currentStatus.emergencyStop,
+        obstacleDetected: currentStatus.obstacleDetected,
+        areaToday: currentStatus.areaToday,
+        cleaningTime: currentStatus.cleaningTime,
+        totalCycles: currentStatus.totalCycles,
+      );
+    } else if (type == 'status') {
+      // Merge status data
+      updatedStatus = MachineStatus(
+        statusId: currentStatus.statusId,
+        machineId: machineId,
+        status: data['status'] ?? currentStatus.status,
+        energyValue: (data['energy'] ?? currentStatus.energyValue).toDouble(),
+        waterValue: (data['water'] ?? currentStatus.waterValue).toDouble(),
+        areaValue: (data['area'] ?? currentStatus.areaValue).toDouble(),
+        timestamp: DateTime.now(),
+        // Keep others
+        mode: currentStatus.mode,
+        timer: currentStatus.timer,
+        batteryLevel: currentStatus.batteryLevel,
+        batteryVoltage: currentStatus.batteryVoltage,
+        isCharging: currentStatus.isCharging,
+        waterLevel: currentStatus.waterLevel,
+        pumpStatus: currentStatus.pumpStatus,
+        brushRPM: currentStatus.brushRPM,
+        brushTemp: currentStatus.brushTemp,
+        isBrushJam: currentStatus.isBrushJam,
+        speed: currentStatus.speed,
+        direction: currentStatus.direction,
+        emergencyStop: currentStatus.emergencyStop,
+        obstacleDetected: currentStatus.obstacleDetected,
+        areaToday: currentStatus.areaToday,
+        cleaningTime: currentStatus.cleaningTime,
+        totalCycles: currentStatus.totalCycles,
+      );
+    } else {
+      return;
+    }
+
+    _liveStatuses[machineId] = updatedStatus;
+    notifyListeners();
+  }
+
   Future<void> fetchAllLiveStatus() async {
     try {
       final response = await MachineStatusService.getAllLive();
       if (response['success']) {
         final List data = response['data'];
-        bool hasChanges = false;
-        
         for (var item in data) {
           final backendStatus = MachineStatus.fromJson(item);
-          final prevStatus = _liveStatuses[backendStatus.machineId];
-          
-          // Decorate backend data with simulated telemetry
-          final detailedStatus = _simulateDetailedTelemetry(backendStatus);
-          
-          // Check if anything meaningful changed (excluding timestamp)
-          if (prevStatus == null || !_isStatusEqual(prevStatus, detailedStatus)) {
-            _liveStatuses[detailedStatus.machineId] = detailedStatus;
-            hasChanges = true;
+          // Only update if we don't have a newer WebSocket update or IF it's the first time
+          if (!_liveStatuses.containsKey(backendStatus.machineId)) {
+            _liveStatuses[backendStatus.machineId] = backendStatus;
           }
         }
-        
-        if (hasChanges) {
-          notifyListeners();
-        }
+        notifyListeners();
       }
     } catch (e) {
       debugPrint('Error fetching live status: $e');
     }
   }
 
-  bool _isStatusEqual(MachineStatus a, MachineStatus b) {
-    // Compare essential telemetry fields to decide if we should refresh
-    return a.status == b.status &&
-           a.energyValue == b.energyValue &&
-           a.waterValue == b.waterValue &&
-           a.areaValue == b.areaValue &&
-           a.batteryLevel == b.batteryLevel &&
-           a.waterLevel == b.waterLevel &&
-           a.brushRPM == b.brushRPM &&
-           a.brushTemp == b.brushTemp &&
-           a.speed == b.speed &&
-           a.obstacleDetected == b.obstacleDetected &&
-           a.emergencyStop == b.emergencyStop;
-  }
-
-  /// Injects simulated data for fields not yet available in backend
-  MachineStatus _simulateDetailedTelemetry(MachineStatus base) {
-    // Maintain some stability if we already have a status for this machine
-    final prev = _liveStatuses[base.machineId];
-    
-    // 80% chance to keep the same simulation values to avoid "flickering"
-    final shouldChange = prev == null || _random.nextDouble() > 0.8;
-    
-    if (!shouldChange) {
-      return MachineStatus(
-        statusId: base.statusId,
-        machineId: base.machineId,
-        status: base.status,
-        energyValue: base.energyValue,
-        waterValue: base.waterValue,
-        areaValue: base.areaValue,
-        timestamp: base.timestamp,
-        // Carry over previous simulation values
-        mode: prev.mode,
-        timer: (prev.timer) + 5, // Keep timer running
-        batteryLevel: prev.batteryLevel,
-        batteryVoltage: prev.batteryVoltage,
-        isCharging: prev.isCharging,
-        waterLevel: prev.waterLevel,
-        pumpStatus: prev.pumpStatus,
-        brushRPM: prev.brushRPM,
-        brushTemp: prev.brushTemp,
-        isBrushJam: prev.isBrushJam,
-        speed: prev.speed,
-        direction: prev.direction,
-        emergencyStop: prev.emergencyStop,
-        obstacleDetected: prev.obstacleDetected,
-        areaToday: base.areaValue,
-        cleaningTime: (prev.cleaningTime) + 5,
-        totalCycles: prev.totalCycles,
-      );
-    }
-
-    return MachineStatus(
-      statusId: base.statusId,
-      machineId: base.machineId,
-      status: base.status,
-      energyValue: base.energyValue,
-      waterValue: base.waterValue,
-      areaValue: base.areaValue,
-      timestamp: base.timestamp,
-      // Simulated fields
-      mode: _random.nextDouble() > 0.9 ? 'Manual' : (prev?.mode ?? 'Auto'),
-      timer: (prev?.timer ?? 0) + 5,
-      batteryLevel: (prev?.batteryLevel ?? (85.0 + _random.nextDouble() * 15.0)) - (_random.nextDouble() * 0.1),
-      batteryVoltage: 24.0 + (_random.nextDouble() * 0.4 - 0.2),
-      isCharging: false,
-      waterLevel: (prev?.waterLevel ?? (70.0 + _random.nextDouble() * 30.0)) - (_random.nextDouble() * 0.05),
-      pumpStatus: _random.nextDouble() > 0.5,
-      brushRPM: 2500 + _random.nextInt(500),
-      brushTemp: 35.0 + _random.nextDouble() * 15.0,
-      isBrushJam: _random.nextDouble() > 0.99,
-      speed: 0.5 + _random.nextDouble() * 1.5,
-      direction: (prev?.direction ?? 0) + (_random.nextDouble() * 10 - 5),
-      emergencyStop: false,
-      obstacleDetected: _random.nextDouble() > 0.97,
-      areaToday: base.areaValue,
-      cleaningTime: (prev?.cleaningTime ?? 0) + 5,
-      totalCycles: prev?.totalCycles ?? _random.nextInt(100),
-    );
-  }
-
   @override
   void dispose() {
     stopPolling();
+    for (var channel in _channels.values) {
+      channel.sink.close();
+    }
     super.dispose();
   }
 }

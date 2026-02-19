@@ -54,31 +54,32 @@ class MachineStatus {
   });
 
   factory MachineStatus.fromJson(Map<String, dynamic> json) {
+    // Handle both Database keys (Uppercase) and MQTT/WebSocket keys (Lowercase)
     return MachineStatus(
-      statusId: json['StatusID'],
-      machineId: json['MachineID'],
-      status: json['Status'],
-      energyValue: (json['EnergyValue'] as num?)?.toDouble() ?? 0.0,
-      waterValue: (json['WaterValue'] as num?)?.toDouble() ?? 0.0,
-      areaValue: (json['AreaValue'] as num?)?.toDouble() ?? 0.0,
+      statusId: json['StatusID'] ?? 0,
+      machineId: json['MachineID'] ?? json['machine_id'] ?? 0,
+      status: json['Status'] ?? json['status'] ?? 'Offline',
+      energyValue: (json['EnergyValue'] ?? json['energy'] ?? 0.0).toDouble(),
+      waterValue: (json['WaterValue'] ?? json['water'] ?? 0.0).toDouble(),
+      areaValue: (json['AreaValue'] ?? json['area'] ?? 0.0).toDouble(),
       timestamp: json['Timestamp'] != null 
           ? DateTime.parse(json['Timestamp']) 
           : DateTime.now(),
       mode: json['Mode'] ?? 'Auto',
       timer: json['Timer'] ?? 0,
-      batteryLevel: (json['BatteryLevel'] ?? 100.0).toDouble(),
-      batteryVoltage: (json['BatteryVoltage'] ?? 24.0).toDouble(),
+      batteryLevel: (json['BatteryLevel'] ?? json['battery'] ?? 100.0).toDouble(),
+      batteryVoltage: (json['BatteryVoltage'] ?? json['solar_v'] ?? 24.0).toDouble(), // Mapping solar_v to voltage for now
       isCharging: json['IsCharging'] ?? false,
-      waterLevel: (json['WaterLevel'] ?? 100.0).toDouble(),
+      waterLevel: (json['WaterLevel'] ?? json['water'] ?? 100.0).toDouble(),
       pumpStatus: json['PumpStatus'] ?? false,
       brushRPM: json['BrushRPM'] ?? 0,
-      brushTemp: (json['BrushTemp'] ?? 25.0).toDouble(),
+      brushTemp: (json['BrushTemp'] ?? (json['extra']?['temp']) ?? 25.0).toDouble(),
       isBrushJam: json['IsBrushJam'] ?? false,
       speed: (json['Speed'] ?? 0.0).toDouble(),
       direction: (json['Direction'] ?? 0.0).toDouble(),
       emergencyStop: json['EmergencyStop'] ?? false,
       obstacleDetected: json['ObstacleDetected'] ?? false,
-      areaToday: (json['AreaToday'] ?? 0.0).toDouble(),
+      areaToday: (json['AreaToday'] ?? json['area'] ?? 0.0).toDouble(),
       cleaningTime: json['CleaningTime'] ?? 0,
       totalCycles: json['TotalCycles'] ?? 0,
     );

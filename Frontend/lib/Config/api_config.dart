@@ -15,7 +15,12 @@ class ApiConfig {
     } catch (e) {
       // Ignored for web compatibility if Platform check fails unexpectedly
     }
-    return "http://localhost:8006"; // Windows/Linux/macOS
+  return "http://localhost:8006"; // Windows/Linux/macOS
+  }
+
+  static String get wsUrl {
+    if (_customServerIP != null) return "ws://$_customServerIP:8006";
+    return "ws://localhost:8006";
   }
 
   static const Duration timeout = Duration(seconds: 30);

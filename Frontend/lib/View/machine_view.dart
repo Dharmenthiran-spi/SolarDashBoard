@@ -199,6 +199,8 @@ class _MachineListScreenState extends State<MachineListScreen> {
       'Name',
       'Serial No',
       'Description',
+      'MQTT User',
+      'MQTT Pass',
       'Image',
     ];
 
@@ -215,16 +217,20 @@ class _MachineListScreenState extends State<MachineListScreen> {
         150, // Name
         120, // Serial No
         200, // Description
+        120, // MQTT User
+        120, // MQTT Pass
         80, // Image
       ];
     } else {
       columnWidths = [
         screenWidth * 0.05,
-        screenWidth * 0.20, // Company
-        screenWidth * 0.15, // Customer
-        screenWidth * 0.15, // Name
-        screenWidth * 0.12, // Serial No
-        screenWidth * 0.19, // Description
+        screenWidth * 0.15, // Company
+        screenWidth * 0.10, // Customer
+        screenWidth * 0.10, // Name
+        screenWidth * 0.08, // Serial No
+        screenWidth * 0.15, // Description
+        screenWidth * 0.10, // MQTT User
+        screenWidth * 0.10, // MQTT Pass
         screenWidth * 0.10, // Image
       ];
     }
@@ -442,10 +448,30 @@ class _MachineListScreenState extends State<MachineListScreen> {
                               isEditMode: viewModel.isEditMode,
                             ),
 
+                      // MQTT User
+                      _buildCell(
+                        width: columnWidths[6],
+                        text: (viewModel.globalState.isCompanyEmployee && viewModel.globalState.isAdmin)
+                            ? (machine.mqttUsername ?? '-')
+                            : '****',
+                        height: rowHeight,
+                        isEditMode: false, // Keep it read-only in table
+                      ),
+
+                      // MQTT Pass
+                      _buildCell(
+                        width: columnWidths[7],
+                        text: (viewModel.globalState.isCompanyEmployee && viewModel.globalState.isAdmin)
+                            ? (machine.mqttPassword ?? '-')
+                            : '****',
+                        height: rowHeight,
+                        isEditMode: false, // Keep it read-only in table
+                      ),
+
                       // Image
                       _buildImageCell(
                         context: context,
-                        width: columnWidths[6],
+                        width: columnWidths[8],
                         height: rowHeight,
                         base64Image: machine.image,
                         isEditable: viewModel.isEditMode,
@@ -649,6 +675,73 @@ class _MachineListScreenState extends State<MachineListScreen> {
                         ],
                       ),
                     ),
+                    // MQTT Username (Only for Company Admins)
+                    if (vm.globalState.isCompanyEmployee && vm.globalState.isAdmin)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                Translate.get(context, 'MQTT Username:'),
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                            ),
+                            Expanded(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(8.0),
+                                ),
+                                child: TextField(
+                                  controller: vm.mqttUsernameController,
+                                  decoration: const InputDecoration(
+                                    border: OutlineInputBorder(),
+                                    contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                    ),
+                                  ),
+                                  style: AppTextStyles.bodyText(Colors.black),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    
+                    // MQTT Password (Only for Company Admins)
+                    if (vm.globalState.isCompanyEmployee && vm.globalState.isAdmin)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                Translate.get(context, 'MQTT Password:'),
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                            ),
+                            Expanded(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(8.0),
+                                ),
+                                child: TextField(
+                                  controller: vm.mqttPasswordController,
+                                  decoration: const InputDecoration(
+                                    border: OutlineInputBorder(),
+                                    contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                    ),
+                                  ),
+                                  style: AppTextStyles.bodyText(Colors.black),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
 
                     // Description
                     Padding(
@@ -731,6 +824,8 @@ class _MachineListScreenState extends State<MachineListScreen> {
                   companyId: viewModel.selectedCompanyId,
                   customerId: viewModel.selectedCustomerId,
                   image: viewModel.selectedImageBase64,
+                  mqttUsername: viewModel.mqttUsernameController.text,
+                  mqttPassword: viewModel.mqttPasswordController.text,
                 );
 
                 try {

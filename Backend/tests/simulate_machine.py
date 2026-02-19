@@ -57,14 +57,14 @@ async def listen_all_commands(client):
         print(f"📥 RECEIVED COMMAND on {message.topic}: {payload}")
 
 async def main():
-    # Use arguments if provided: python simulate_machine.py <company_id> <serial_no>
-    if len(sys.argv) == 3:
+    # Use arguments if provided: python simulate_machine.py <company_id> <serial_no1> <serial_no2> ...
+    if len(sys.argv) >= 3:
         target_company = sys.argv[1]
-        target_serial = sys.argv[2]
-        machines = [(target_company, target_serial)]
+        serials = sys.argv[2:]
+        machines = [(target_company, s_no) for s_no in serials]
     else:
         # Default fallback for testing
-        print("💡 Tip: Use 'python simulate_machine.py <CompanyID> <SerialNo>' to target a specific machine.")
+        print("💡 Tip: Use 'python simulate_machine.py <CompanyID> <SerialNo1> <SerialNo2> ...' for bulk simulation.")
         machines = [(1, "SOLAR-001"), (1, "SOLAR-002")]
 
     try:

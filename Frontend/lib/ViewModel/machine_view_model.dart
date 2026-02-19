@@ -20,6 +20,8 @@ class MachineViewModel extends ChangeNotifier {
   final TextEditingController descriptionController = TextEditingController();
   final TextEditingController companyController = TextEditingController();
   final TextEditingController customerController = TextEditingController();
+  final TextEditingController mqttUsernameController = TextEditingController();
+  final TextEditingController mqttPasswordController = TextEditingController();
 
   // Dropdown state variables
   int? selectedCompanyId;
@@ -243,6 +245,8 @@ class MachineViewModel extends ChangeNotifier {
     descriptionController.dispose();
     companyController.dispose();
     customerController.dispose();
+    mqttUsernameController.dispose();
+    mqttPasswordController.dispose();
     super.dispose();
   }
 
@@ -253,6 +257,8 @@ class MachineViewModel extends ChangeNotifier {
     descriptionController.clear();
     companyController.clear();
     customerController.clear();
+    mqttUsernameController.clear();
+    mqttPasswordController.clear();
     selectedCompanyId = null;
     selectedCustomerId = null;
     _selectedImageBase64 = null;
@@ -286,6 +292,8 @@ class MachineViewModel extends ChangeNotifier {
     descriptionController.text = machine.description ?? '';
     selectedCompanyId = machine.companyId;
     selectedCustomerId = machine.customerId;
+    mqttUsernameController.text = machine.mqttUsername ?? '';
+    mqttPasswordController.text = machine.mqttPassword ?? '';
 
     // Set labels for searchable dropdowns
     companyController.text =
