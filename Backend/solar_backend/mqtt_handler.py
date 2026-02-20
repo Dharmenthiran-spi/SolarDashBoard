@@ -134,7 +134,6 @@ class MQTTHandler:
         
         asyncio.create_task(update_db())
 
-        # Broadcast always for status changes
         update_msg = {"type": "status", "machine_id": machine_id, "data": payload}
         asyncio.create_task(manager.broadcast_to_machine(machine_id, update_msg))
         asyncio.create_task(manager.broadcast_to_company(company_id, update_msg))
