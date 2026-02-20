@@ -37,8 +37,7 @@ async def simulate_single_machine(client, company_id, machine_serial):
     while True:
         try:
             now = asyncio.get_event_loop().time()
-            
-            # --- UNIFIED UPDATE (Every 10s) ---
+
             if (now - last_sent["telemetry"]) > 10:
                 # 1. Status Update (Heartbeat)
                 current_status = random.choice(["Running", "Idle", "Charging"])
