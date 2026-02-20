@@ -9,6 +9,10 @@ router = APIRouter(
     tags=["Realtime"]
 )
 
+@router.get("/health")
+async def health_check():
+    return {"status": "ok", "service": "realtime"}
+
 logger = logging.getLogger(__name__)
 
 class ConnectionManager:

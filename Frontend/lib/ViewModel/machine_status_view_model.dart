@@ -85,8 +85,10 @@ class MachineStatusViewModel extends ChangeNotifier {
       return; // Use negative ID for company channels
     }
 
-    // Sanitise URL by trimming to prevent handshake errors (like # issues)
-    final wsUrl = "${ApiConfig.wsUrl}/realtime/company/$companyId".trim();
+    // Aggressively sanitize URL: remove fragments (#) and trim
+    final wsUrl = "${ApiConfig.wsUrl}/realtime/company/$companyId"
+        .replaceAll('#', '')
+        .trim();
     
     try {
       debugPrint('🔌 Attempting WS Connection: $wsUrl');
