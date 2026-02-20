@@ -38,6 +38,7 @@ async def simulate_single_machine(client, company_id, machine_serial):
         try:
             now = asyncio.get_event_loop().time()
 
+
             if (now - last_sent["telemetry"]) > 10:
                 # 1. Status Update (Heartbeat)
                 current_status = random.choice(["Running", "Idle", "Charging"])
