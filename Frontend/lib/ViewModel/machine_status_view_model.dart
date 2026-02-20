@@ -15,8 +15,7 @@ class MachineStatusViewModel extends ChangeNotifier {
 
   Map<int, MachineStatus> get liveStatuses => _liveStatuses;
   void startPolling() {
-    if (_isPolling || _isWebSocketActive)
-      return; // Don't start if already polling or WS is active
+    if (_isPolling || _isWebSocketActive) return;
     _isPolling = true;
     _pollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       fetchAllLiveStatus();
@@ -32,7 +31,7 @@ class MachineStatusViewModel extends ChangeNotifier {
   void _handleWSDisconnect(int companyId) {
     _isWebSocketActive = false;
     _disconnectFromCompany(companyId);
-    startPolling(); // Fallback to polling
+    startPolling();
     debugPrint('WS Lost: Resuming 5s polling');
   }
 
@@ -133,7 +132,6 @@ class MachineStatusViewModel extends ChangeNotifier {
     late MachineStatus updatedStatus;
 
     if (type == 'telemetry') {
-      // Merge telemetry data into existing status
       updatedStatus = MachineStatus(
         statusId: currentStatus.statusId,
         machineId: machineId,
@@ -197,7 +195,6 @@ class MachineStatusViewModel extends ChangeNotifier {
     } else {
       return;
     }
-
     _liveStatuses[machineId] = updatedStatus;
     notifyListeners();
   }
@@ -209,7 +206,6 @@ class MachineStatusViewModel extends ChangeNotifier {
         final List data = response['data'];
         for (var item in data) {
           final backendStatus = MachineStatus.fromJson(item);
-          // Update machine status (Overwrite existing)
           _liveStatuses[backendStatus.machineId] = backendStatus;
         }
         notifyListeners();

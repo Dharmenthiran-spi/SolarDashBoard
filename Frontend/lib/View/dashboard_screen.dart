@@ -37,7 +37,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       dashVM.fetchSummary();
       statusVM.startPolling();
 
-      // Connect to global company feed for real-time updates for all machines
       if (globalState.currentUser?.companyId != null) {
         statusVM.connectToCompany(globalState.currentUser!.companyId!);
       }
@@ -112,7 +111,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     isDark,
                   ), // statusVM removed
                   const SizedBox(height: 16),
-                  _buildSplitHUD(context, dashVM, isDark), // statusVM removed
+                  _buildSplitHUD(context, dashVM, isDark),
                   const SizedBox(height: 24),
                   _buildAnalyticsSection(context, dashVM, isDark),
                 ],
