@@ -12,40 +12,79 @@ BROKER = "157.173.222.91"
 PORT = 1883
 
 async def simulate_single_machine(client, company_id, machine_serial):
-    """Simulates a single machine's activity."""
-    print(f"🟢 Starting simulation for: Company {company_id}, Machine {machine_serial}")
+    """Simulates a single machine's activity with tiered frequency."""
+    print(f"🟢 Starting optimized simulation for: Company {company_id}, Machine {machine_serial}")
     
-    # Subscribe to command topic
     command_topic = f"company/{company_id}/machine/{machine_serial}/command"
     await client.subscribe(command_topic)
-    print(f"📡 Subscribed to commands: {command_topic}")
+
+    # State tracking for tiered frequency
+    last_sent = {
+        "status": 0,
+        "telemetry": 0,
+        "position": 0,
+        "temp": 0,
+        "battery": 0,
+        "heartbeat": 0
+    }
+    
+    last_values = {
+        "status_str": None,
+        "battery": None,
+        "temp": None
+    }
 
     while True:
         try:
-            # 1. Send Random Status
-            status_topic = f"company/{company_id}/machine/{machine_serial}/status"
-            status_payload = {
-                "status": random.choice(["Running", "Idle", "Charging"]),
-                "energy": round(random.uniform(10, 50), 2),
-                "water": round(random.uniform(5, 20), 2),
-                "area": round(random.uniform(100, 500), 2)
-            }
-            await client.publish(status_topic, json.dumps(status_payload))
-            print(f"📊 [{machine_serial}] Status Published: {status_payload['status']}")
+            now = asyncio.get_event_loop().time()
+            
+            # --- STATUS & HEARTBEAT (30s heartbeat or immediate on change) ---
+            current_status = random.choice(["Running", "Idle", "Charging"])
+            if current_status != last_values["status_str"] or (now - last_sent["heartbeat"]) > 30:
+                status_topic = f"company/{company_id}/machine/{machine_serial}/status"
+                status_payload = {
+                    "status": current_status,
+                    "energy": round(random.uniform(10, 50), 2),
+                    "water": round(random.uniform(5, 20), 2),
+                    "area": round(random.uniform(100, 500), 2)
+                }
+                await client.publish(status_topic, json.dumps(status_payload))
+                last_sent["heartbeat"] = now
+                last_values["status_str"] = current_status
+                print(f"📊 [{machine_serial}] Status/Heartbeat Published: {current_status}")
 
-            # 2. Send Random Telemetry
-            telemetry_topic = f"company/{company_id}/machine/{machine_serial}/telemetry"
-            telemetry_payload = {
-                "battery": round(random.uniform(12.0, 14.8), 2),
-                "solar_v": round(random.uniform(18.0, 24.0), 2),
-                "solar_a": round(random.uniform(0.1, 10.0), 2),
-                "water": round(random.uniform(0, 100), 2),
-                "extra": {"temp": round(random.uniform(20, 50), 1)}
-            }
-            await client.publish(telemetry_topic, json.dumps(telemetry_payload))
-            print(f"📈 [{machine_serial}] Telemetry Published: {telemetry_payload['battery']}V")
+            # --- TELEMETRY TIERED ---
+            telemetry_payload = {}
+            
+            # Position (Every 5s) - Simulated via 'area' updates in status usually, 
+            # but we'll simulate 'extra' updates here
+            if (now - last_sent["position"]) > 5:
+                telemetry_payload["position"] = {"lat": 12.92, "lng": 80.14} # Stationary for demo
+                last_sent["position"] = now
 
-            await asyncio.sleep(random.randint(1, 3)) # High frequency for 'live' feeling
+            # Temperature (Every 10s)
+            curr_temp = round(random.uniform(20, 50), 1)
+            if (now - last_sent["temp"]) > 10 or abs(curr_temp - (last_values["temp"] or 0)) > 5:
+                telemetry_payload["extra"] = {"temp": curr_temp}
+                last_sent["temp"] = now
+                last_values["temp"] = curr_temp
+
+            # Battery (Every 15s)
+            curr_batt = round(random.uniform(12.0, 14.8), 2)
+            if (now - last_sent["battery"]) > 15:
+                telemetry_payload["battery"] = curr_batt
+                telemetry_payload["solar_v"] = round(random.uniform(18.0, 24.0), 2)
+                telemetry_payload["solar_a"] = round(random.uniform(0.1, 10.0), 2)
+                last_sent["battery"] = now
+
+            if telemetry_payload:
+                telemetry_topic = f"company/{company_id}/machine/{machine_serial}/telemetry"
+                # Always include water for consistent model mapping in this demo
+                telemetry_payload["water"] = round(random.uniform(0, 100), 2)
+                await client.publish(telemetry_topic, json.dumps(telemetry_payload))
+                print(f"📈 [{machine_serial}] Tiered Telemetry Published: {list(telemetry_payload.keys())}")
+
+            await asyncio.sleep(1) # Check every second
         except Exception as e:
             print(f"❌ Error in machine {machine_serial}: {e}")
             break

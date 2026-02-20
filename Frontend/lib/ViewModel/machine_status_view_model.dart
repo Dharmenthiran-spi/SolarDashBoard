@@ -14,18 +14,23 @@ class MachineStatusViewModel extends ChangeNotifier {
 
   Map<int, MachineStatus> get liveStatuses => _liveStatuses;
 
-  void startPolling() {
-    if (_isPolling) return;
-    _isPolling = true;
-    _pollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
-      fetchAllLiveStatus();
+  /// Starts polling only as a fallback when WebSockets are not healthy
+  void startSmartPolling() {
+    _pollingTimer?.cancel();
+    _pollingTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      bool anyConnected = _channels.isNotEmpty;
+      if (!anyConnected) {
+        debugPrint('🔔 WS disconnected. Falling back to polling...');
+        fetchAllLiveStatus();
+      } else {
+        // We are connected, we can skip polling or use a much slower interval (e.g. 60s)
+        // For now, we just skip to save battery/bandwidth.
+      }
     });
-    fetchAllLiveStatus();
   }
 
   void stopPolling() {
     _pollingTimer?.cancel();
-    _isPolling = false;
   }
 
   /// Connect to WebSocket for a specific machine for real-time updates
@@ -45,14 +50,17 @@ class MachineStatusViewModel extends ChangeNotifier {
         onError: (error) {
           debugPrint('WS Error for machine $machineId: $error');
           _disconnectFromMachine(machineId);
+          startSmartPolling(); // Ensure polling starts if WS fails
         },
         onDone: () {
           debugPrint('WS Closed for machine $machineId');
           _disconnectFromMachine(machineId);
+          startSmartPolling();
         },
       );
     } catch (e) {
       debugPrint('WS Connection failed for machine $machineId: $e');
+      startSmartPolling();
     }
   }
 
@@ -77,14 +85,17 @@ class MachineStatusViewModel extends ChangeNotifier {
         onError: (error) {
           debugPrint('WS Error for company $companyId: $error');
           _disconnectFromCompany(companyId);
+          startSmartPolling();
         },
         onDone: () {
           debugPrint('WS Closed for company $companyId');
           _disconnectFromCompany(companyId);
+          startSmartPolling();
         },
       );
     } catch (e) {
       debugPrint('WS Connection failed for company $companyId: $e');
+      startSmartPolling();
     }
   }
 
