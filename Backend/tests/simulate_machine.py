@@ -12,74 +12,40 @@ BROKER = "157.173.222.91"
 PORT = 1883
 
 async def simulate_single_machine(client, company_id, machine_serial):
-    """Simulates a single machine's activity with adaptive frequencies."""
-    print(f"🟢 Starting optimized simulation for: Company {company_id}, Machine {machine_serial}")
+    """Simulates a single machine's activity."""
+    print(f"🟢 Starting simulation for: Company {company_id}, Machine {machine_serial}")
     
+    # Subscribe to command topic
     command_topic = f"company/{company_id}/machine/{machine_serial}/command"
     await client.subscribe(command_topic)
-
-    # Local state for delta detection
-    last_state = {"status": None, "battery": None, "water": None, "temp": None}
-    
-    last_status_sent = 0
-    last_telemetry_sent = 0
-    last_heartbeat_sent = 0
-    
-    # Adaptive intervals (seconds)
-    POS_INTERVAL = 5
-    TEMP_INTERVAL = 10
-    BATT_INTERVAL = 15
-    HEARTBEAT_INTERVAL = 30
+    print(f"📡 Subscribed to commands: {command_topic}")
 
     while True:
         try:
-            now = asyncio.get_event_loop().time()
-            
-            # 1. Emergency/Status Changes (Immediate if changed)
-            status_val = random.choice(["Running", "Idle", "Charging"])
-            if status_val != last_state["status"]:
-                status_topic = f"company/{company_id}/machine/{machine_serial}/status"
-                status_payload = {
-                    "status": status_val,
-                    "energy": round(random.uniform(10, 50), 2),
-                    "water": round(random.uniform(5, 20), 2),
-                    "area": round(random.uniform(100, 500), 2)
-                }
-                await client.publish(status_topic, json.dumps(status_payload))
-                last_state["status"] = status_val
-                print(f"🚨 [{machine_serial}] Status ALERT: {status_val}")
+            # 1. Send Random Status
+            status_topic = f"company/{company_id}/machine/{machine_serial}/status"
+            status_payload = {
+                "status": random.choice(["Running", "Idle", "Charging"]),
+                "energy": round(random.uniform(10, 50), 2),
+                "water": round(random.uniform(5, 20), 2),
+                "area": round(random.uniform(100, 500), 2)
+            }
+            await client.publish(status_topic, json.dumps(status_payload))
+            print(f"📊 [{machine_serial}] Status Published: {status_payload['status']}")
 
-            # 2. Adaptive Telemetry
-            telemetry_payload = {}
-            
-            # Position/Area (5s)
-            if now - last_status_sent >= POS_INTERVAL:
-                telemetry_payload["area"] = round(random.uniform(100, 500), 2)
-                last_status_sent = now
+            # 2. Send Random Telemetry
+            telemetry_topic = f"company/{company_id}/machine/{machine_serial}/telemetry"
+            telemetry_payload = {
+                "battery": round(random.uniform(12.0, 14.8), 2),
+                "solar_v": round(random.uniform(18.0, 24.0), 2),
+                "solar_a": round(random.uniform(0.1, 10.0), 2),
+                "water": round(random.uniform(0, 100), 2),
+                "extra": {"temp": round(random.uniform(20, 50), 1)}
+            }
+            await client.publish(telemetry_topic, json.dumps(telemetry_payload))
+            print(f"📈 [{machine_serial}] Telemetry Published: {telemetry_payload['battery']}V")
 
-            # Temperature (10s)
-            if now - last_telemetry_sent >= TEMP_INTERVAL:
-                telemetry_payload["temp"] = round(random.uniform(20, 50), 1)
-                last_telemetry_sent = now
-
-            # Battery (15s)
-            if now - last_telemetry_sent >= BATT_INTERVAL:
-                telemetry_payload["battery"] = round(random.uniform(12.0, 14.8), 2)
-                telemetry_payload["solar_v"] = round(random.uniform(18.0, 24.0), 2)
-            
-            if telemetry_payload:
-                telemetry_topic = f"company/{company_id}/machine/{machine_serial}/telemetry"
-                await client.publish(telemetry_topic, json.dumps(telemetry_payload))
-                print(f"📈 [{machine_serial}] Adaptive Telemetry: {list(telemetry_payload.keys())}")
-
-            # 3. Heartbeat (30s)
-            if now - last_heartbeat_sent >= HEARTBEAT_INTERVAL:
-                hb_topic = f"company/{company_id}/machine/{machine_serial}/heartbeat"
-                await client.publish(hb_topic, json.dumps({"ts": now, "v": "1.0.2"}))
-                last_heartbeat_sent = now
-                print(f"💗 [{machine_serial}] Heartbeat sent")
-
-            await asyncio.sleep(1) # Check intervals every second
+            await asyncio.sleep(random.randint(1, 3)) # High frequency for 'live' feeling
         except Exception as e:
             print(f"❌ Error in machine {machine_serial}: {e}")
             break

@@ -11,11 +11,11 @@ class MachineStatusViewModel extends ChangeNotifier {
   final Map<int, WebSocketChannel> _channels = {};
   Timer? _pollingTimer;
   bool _isPolling = false;
-  bool _isWebSocketActive = false;
 
   Map<int, MachineStatus> get liveStatuses => _liveStatuses;
+
   void startPolling() {
-    if (_isPolling || _isWebSocketActive) return;
+    if (_isPolling) return;
     _isPolling = true;
     _pollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       fetchAllLiveStatus();
@@ -26,13 +26,6 @@ class MachineStatusViewModel extends ChangeNotifier {
   void stopPolling() {
     _pollingTimer?.cancel();
     _isPolling = false;
-  }
-
-  void _handleWSDisconnect(int companyId) {
-    _isWebSocketActive = false;
-    _disconnectFromCompany(companyId);
-    startPolling();
-    debugPrint('WS Lost: Resuming 5s polling');
   }
 
   /// Connect to WebSocket for a specific machine for real-time updates
@@ -75,11 +68,6 @@ class MachineStatusViewModel extends ChangeNotifier {
 
       channel.stream.listen(
         (message) {
-          if (!_isWebSocketActive) {
-            _isWebSocketActive = true;
-            stopPolling(); // Disable polling while WS is healthy
-            debugPrint('WS Active: Pausing 5s polling');
-          }
           final Map<String, dynamic> update = json.decode(message);
           final machineId = update['machine_id'];
           if (machineId != null) {
@@ -88,16 +76,13 @@ class MachineStatusViewModel extends ChangeNotifier {
         },
         onError: (error) {
           debugPrint('WS Error for company $companyId: $error');
-          _handleWSDisconnect(companyId);
+          _disconnectFromCompany(companyId);
         },
         onDone: () {
           debugPrint('WS Closed for company $companyId');
-          _handleWSDisconnect(companyId);
+          _disconnectFromCompany(companyId);
         },
       );
-
-      // Perform one full sync after connecting to ensure initial state is fresh
-      fetchAllLiveStatus();
     } catch (e) {
       debugPrint('WS Connection failed for company $companyId: $e');
     }
@@ -132,6 +117,7 @@ class MachineStatusViewModel extends ChangeNotifier {
     late MachineStatus updatedStatus;
 
     if (type == 'telemetry') {
+      // Merge telemetry data into existing status
       updatedStatus = MachineStatus(
         statusId: currentStatus.statusId,
         machineId: machineId,
@@ -195,6 +181,7 @@ class MachineStatusViewModel extends ChangeNotifier {
     } else {
       return;
     }
+
     _liveStatuses[machineId] = updatedStatus;
     notifyListeners();
   }
@@ -206,6 +193,7 @@ class MachineStatusViewModel extends ChangeNotifier {
         final List data = response['data'];
         for (var item in data) {
           final backendStatus = MachineStatus.fromJson(item);
+          // Update machine status (Overwrite existing)
           _liveStatuses[backendStatus.machineId] = backendStatus;
         }
         notifyListeners();

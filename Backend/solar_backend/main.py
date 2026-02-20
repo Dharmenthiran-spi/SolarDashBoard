@@ -72,26 +72,16 @@ async def lifespan(app: FastAPI):
         except Exception as sync_e:
             print(f"CRITICAL SYNC ERROR: {sync_e}")
 
-        # Initialize Redis
-        import redis.asyncio as redis
-        redis_pool = redis.ConnectionPool(
-            host=settings.REDIS_HOST,
-            port=settings.REDIS_PORT,
-            decode_responses=True
-        )
-        app.state.redis = redis.Redis(connection_pool=redis_pool)
-        print("Redis connection pool initialized.")
-
         # Start MQTT Handler
         from .mqtt_handler import MQTTHandler
+        from .config import settings
         
         mqtt_handler = MQTTHandler(
             broker=settings.MQTT_BROKER,
             port=settings.MQTT_PORT,
             username=settings.MQTT_USERNAME,
             password=settings.MQTT_PASSWORD,
-            use_tls=settings.MQTT_USE_TLS,
-            redis_client=app.state.redis
+            use_tls=settings.MQTT_USE_TLS
         )
         
         # Run MQTT handler as a background task
@@ -102,8 +92,6 @@ async def lifespan(app: FastAPI):
         
         # Shutdown MQTT handler
         mqtt_task.cancel()
-        await app.state.redis.close()
-        print("Redis connection closed.")
         try:
             await mqtt_task
         except asyncio.CancelledError:
