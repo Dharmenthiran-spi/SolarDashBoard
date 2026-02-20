@@ -35,10 +35,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final globalState = context.read<GlobalState>();
 
       dashVM.fetchSummary();
-      statusVM.startPolling();
-
+      statusVM.fetchAllLiveStatus(); // Fetch immediate state via HTTP so UI is instant
+      
       if (globalState.currentUser?.companyId != null) {
         statusVM.connectToCompany(globalState.currentUser!.companyId!);
+        statusVM.startSmartPolling(); // Start backup polling logic
       }
     });
   }
