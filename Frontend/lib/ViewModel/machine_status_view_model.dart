@@ -13,6 +13,8 @@ class MachineStatusViewModel extends ChangeNotifier {
   bool _isPolling = false;
 
   int? _activeCompanyId;
+  int _reconnectDelay = 1; // Start with 1 second backoff
+  bool _isConnecting = false;
 
   Map<int, MachineStatus> get liveStatuses => _liveStatuses;
 
@@ -22,16 +24,15 @@ class MachineStatusViewModel extends ChangeNotifier {
     _pollingTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
       bool anyConnected = _channels.isNotEmpty;
       if (!anyConnected) {
-        debugPrint('🔔 WS disconnected. Falling back to polling... Attempting Reconnect.');
+        debugPrint(
+          '🔔 WS disconnected. Falling back to polling... Attempting Reconnect.',
+        );
         fetchAllLiveStatus();
-        
+
         // Try to reconnect if we know the company ID
         if (_activeCompanyId != null) {
           connectToCompany(_activeCompanyId!);
         }
-      } else {
-        // We are connected, we can skip polling or use a much slower interval (e.g. 60s)
-        // For now, we just skip to save battery/bandwidth.
       }
     });
   }
@@ -42,70 +43,101 @@ class MachineStatusViewModel extends ChangeNotifier {
 
   /// Connect to WebSocket for a specific machine for real-time updates
   void connectToMachine(int machineId) {
+    if (_isConnecting) return;
     if (_channels.containsKey(machineId)) return;
 
-    final wsUrl = "${ApiConfig.wsUrl}/realtime/$machineId";
+    final wsUrl = "${ApiConfig.wsUrl}/realtime/$machineId".trim();
     try {
       final channel = WebSocketChannel.connect(Uri.parse(wsUrl));
       _channels[machineId] = channel;
 
       channel.stream.listen(
         (message) {
+          _reconnectDelay = 1; 
           final data = json.decode(message);
           _handleRealtimeUpdate(machineId, data);
         },
         onError: (error) {
           debugPrint('WS Error for machine $machineId: $error');
           _disconnectFromMachine(machineId);
-          startSmartPolling(); // Ensure polling starts if WS fails
+          _scheduleRecovery();
         },
         onDone: () {
           debugPrint('WS Closed for machine $machineId');
           _disconnectFromMachine(machineId);
-          startSmartPolling();
+          _scheduleRecovery();
         },
       );
     } catch (e) {
       debugPrint('WS Connection failed for machine $machineId: $e');
-      startSmartPolling();
+      _scheduleRecovery();
     }
   }
 
   /// Connect to WebSocket for an entire company for real-time fleet updates
   void connectToCompany(int companyId) {
+    if (_isConnecting) return; // Guard against multiple simultaneous attempts
     _activeCompanyId = companyId; // Store for reconnection attempts
-    
-    if (_channels.containsKey(-companyId))
-      return; // Use negative ID for company channels
 
-    final wsUrl = "${ApiConfig.wsUrl}/realtime/company/$companyId";
+    _isConnecting = true;
+    if (_channels.containsKey(-companyId)) {
+      _isConnecting = false;
+      return; // Use negative ID for company channels
+    }
+
+    // Sanitise URL by trimming to prevent handshake errors (like # issues)
+    final wsUrl = "${ApiConfig.wsUrl}/realtime/company/$companyId".trim();
+    
     try {
+      debugPrint('🔌 Attempting WS Connection: $wsUrl');
       final channel = WebSocketChannel.connect(Uri.parse(wsUrl));
       _channels[-companyId] = channel;
 
       channel.stream.listen(
         (message) {
+          _isConnecting = false;
+          _reconnectDelay = 1; // Reset backoff on successful message
           final Map<String, dynamic> update = json.decode(message);
+          
+          if (update['type'] == 'heartbeat') return; // Ignore heartbeats
+
           final machineId = update['machine_id'];
           if (machineId != null) {
             _handleRealtimeUpdate(machineId, update);
           }
         },
         onError: (error) {
+          _isConnecting = false;
           debugPrint('WS Error for company $companyId: $error');
           _disconnectFromCompany(companyId);
-          startSmartPolling();
+          _scheduleRecovery();
         },
         onDone: () {
+          _isConnecting = false;
           debugPrint('WS Closed for company $companyId');
           _disconnectFromCompany(companyId);
-          startSmartPolling();
+          _scheduleRecovery();
         },
       );
     } catch (e) {
+      _isConnecting = false;
       debugPrint('WS Connection failed for company $companyId: $e');
-      startSmartPolling();
+      _scheduleRecovery();
     }
+  }
+
+  void _scheduleRecovery() {
+    // Implement Exponential Backoff (1s, 2s, 4s, 8s... max 30s)
+    debugPrint('⏳ Recovering in $_reconnectDelay seconds...');
+    Future.delayed(Duration(seconds: _reconnectDelay), () {
+      if (_channels.isEmpty) {
+          fetchAllLiveStatus();
+          if (_activeCompanyId != null) connectToCompany(_activeCompanyId!);
+      }
+      // Double the delay for next time, up to 30s
+      _reconnectDelay = (_reconnectDelay * 2).clamp(1, 30);
+      startSmartPolling();
+    });
   }
 
   void _disconnectFromCompany(int companyId) {
@@ -214,7 +246,6 @@ class MachineStatusViewModel extends ChangeNotifier {
         final List data = response['data'];
         for (var item in data) {
           final backendStatus = MachineStatus.fromJson(item);
-          // Update machine status (Overwrite existing)
           _liveStatuses[backendStatus.machineId] = backendStatus;
         }
         notifyListeners();
