@@ -113,26 +113,15 @@ class MQTTHandler:
             cached_state_raw = await self.redis_client.get(redis_state_key)
             cached_state = json.loads(cached_state_raw) if cached_state_raw else {}
 
-            # Calculate change (Delta) - Only broadcast what changed
-            delta = {}
-            for k, v in payload.items():
-                if isinstance(v, dict): # Handle 'extra' or 'position'
-                    cached_v = cached_state.get(k, {})
-                    sub_delta = {sk: sv for sk, sv in v.items() if sv != cached_v.get(sk)}
-                    if sub_delta:
-                        delta[k] = sub_delta
-                elif v != cached_state.get(k):
-                    delta[k] = v
-
             # Update Redis with merged state
             cached_state.update(payload)
             await self.redis_client.set(redis_state_key, json.dumps(cached_state))
 
-            # Broadcast ONLY the delta if there's a change
-            if delta:
-                update_msg = {"type": msg_type, "machine_id": machine_id, "data": delta}
-                asyncio.create_task(manager.broadcast_to_machine(machine_id, update_msg))
-                asyncio.create_task(manager.broadcast_to_company(company_id, update_msg))
+            # Broadcast FULL payload immediately for real-time responsiveness
+            # Skipping delta calculation to ensure UI gets exact values instantly
+            update_msg = {"type": msg_type, "machine_id": machine_id, "data": payload}
+            asyncio.create_task(manager.broadcast_to_machine(machine_id, update_msg))
+            asyncio.create_task(manager.broadcast_to_company(company_id, update_msg))
 
             if msg_type == "telemetry":
                 await self.queue_telemetry(machine_id, payload)
