@@ -6,12 +6,22 @@ from typing import List, Dict
 
 router = APIRouter(
     prefix="/realtime",
-    tags=["Realtime"]
+    tags=["Realtime"],
+    redirect_slashes=False
 )
 
 @router.get("/health")
 async def health_check():
     return {"status": "ok", "service": "realtime"}
+
+@router.get("/company/{company_id}")
+async def debug_company_ws_path(company_id: int):
+    """Diagnostic route to check if path is reachable via HTTP."""
+    return {
+        "message": "You reached the HTTP GET version of this path.",
+        "hint": "If you intended to connect via WebSocket, your proxy/server is likely stripping the 'Upgrade' header.",
+        "path": f"/realtime/company/{company_id}"
+    }
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +95,7 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 @router.websocket("/company/{company_id}")
+@router.websocket("/company/{company_id}/")
 async def websocket_company_endpoint(websocket: WebSocket, company_id: int):
     await manager.connect_company(websocket, company_id)
     
@@ -99,6 +110,7 @@ async def websocket_company_endpoint(websocket: WebSocket, company_id: int):
         heartbeat_task.cancel()
 
 @router.websocket("/{machine_id}")
+@router.websocket("/{machine_id}/")
 async def websocket_endpoint(websocket: WebSocket, machine_id: int):
     await manager.connect(websocket, machine_id)
     

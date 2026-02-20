@@ -86,9 +86,9 @@ class MachineStatusViewModel extends ChangeNotifier {
     }
 
     // Aggressively sanitize URL: remove fragments (#) and trim
-    final wsUrl = "${ApiConfig.wsUrl}/realtime/company/$companyId"
-        .replaceAll('#', '')
-        .trim();
+    final baseWsUrl = "${ApiConfig.wsUrl}/realtime/company/$companyId".trim();
+    final sanitizedUri = Uri.parse(baseWsUrl).replace(fragment: '');
+    final wsUrl = sanitizedUri.toString();
     
     try {
       debugPrint('🔌 Attempting WS Connection: $wsUrl');
