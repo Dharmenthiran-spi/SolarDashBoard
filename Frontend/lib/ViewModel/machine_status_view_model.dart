@@ -12,6 +12,8 @@ class MachineStatusViewModel extends ChangeNotifier {
   Timer? _pollingTimer;
   bool _isPolling = false;
 
+  int? _activeCompanyId;
+
   Map<int, MachineStatus> get liveStatuses => _liveStatuses;
 
   /// Starts polling only as a fallback when WebSockets are not healthy
@@ -20,8 +22,13 @@ class MachineStatusViewModel extends ChangeNotifier {
     _pollingTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
       bool anyConnected = _channels.isNotEmpty;
       if (!anyConnected) {
-        debugPrint('🔔 WS disconnected. Falling back to polling...');
+        debugPrint('🔔 WS disconnected. Falling back to polling... Attempting Reconnect.');
         fetchAllLiveStatus();
+        
+        // Try to reconnect if we know the company ID
+        if (_activeCompanyId != null) {
+          connectToCompany(_activeCompanyId!);
+        }
       } else {
         // We are connected, we can skip polling or use a much slower interval (e.g. 60s)
         // For now, we just skip to save battery/bandwidth.
@@ -66,6 +73,8 @@ class MachineStatusViewModel extends ChangeNotifier {
 
   /// Connect to WebSocket for an entire company for real-time fleet updates
   void connectToCompany(int companyId) {
+    _activeCompanyId = companyId; // Store for reconnection attempts
+    
     if (_channels.containsKey(-companyId))
       return; // Use negative ID for company channels
 
@@ -102,6 +111,7 @@ class MachineStatusViewModel extends ChangeNotifier {
   void _disconnectFromCompany(int companyId) {
     _channels[-companyId]?.sink.close();
     _channels.remove(-companyId);
+    // Don't clear _activeCompanyId here so we can reconnect later if needed
   }
 
   void _disconnectFromMachine(int machineId) {

@@ -30,6 +30,9 @@ class MQTTHandler:
         self.telemetry_buffer: List[Telemetry] = []
         self.buffer_lock = asyncio.Lock()
         self.flush_interval = 5  # seconds
+        
+        # Local Memory Cache for Machine ID resolution
+        self.machine_id_cache: Dict[str, int] = {}
 
     async def start(self):
         # Start the telemetry batch flusher
@@ -89,44 +92,54 @@ class MQTTHandler:
             
             payload = json.loads(message.payload.decode())
             
-            # Use Redis to find MachineID by SerialNo (Caching to avoid redundant DB lookups)
-            redis_machine_key = f"machine_map:{machine_serial}"
-            machine_id_str = await self.redis_client.get(redis_machine_key)
-            
-            if machine_id_str:
-                machine_id = int(machine_id_str)
+            # 1. Resolve Machine ID (Order: Memory -> Redis -> DB)
+            if machine_serial in self.machine_id_cache:
+                machine_id = self.machine_id_cache[machine_serial]
             else:
-                # Fallback to DB if not in Redis
-                async with AsyncSessionLocal() as db:
-                    stmt = select(Machine).filter(Machine.SerialNo == machine_serial)
-                    result = await db.execute(stmt)
-                    machine = result.scalar_one_or_none()
-                    if not machine:
-                        logger.warning(f"Machine with SerialNo {machine_serial} not found")
-                        return
-                    machine_id = machine.TableID
-                    # Cache the mapping for 1 hour
-                    await self.redis_client.setex(redis_machine_key, 3600, str(machine_id))
+                redis_machine_key = f"machine_map:{machine_serial}"
+                machine_id_str = await self.redis_client.get(redis_machine_key)
+                
+                if machine_id_str:
+                    machine_id = int(machine_id_str)
+                    self.machine_id_cache[machine_serial] = machine_id
+                else:
+                    async with AsyncSessionLocal() as db:
+                        stmt = select(Machine).filter(Machine.SerialNo == machine_serial)
+                        result = await db.execute(stmt)
+                        machine = result.scalar_one_or_none()
+                        if not machine:
+                            logger.warning(f"Machine with SerialNo {machine_serial} not found")
+                            return
+                        machine_id = machine.TableID
+                        await self.redis_client.setex(redis_machine_key, 3600, str(machine_id))
+                        self.machine_id_cache[machine_serial] = machine_id
 
-            # Cache latest state in Redis and identify diff for WebSocket
-            redis_state_key = f"machine_state:{machine_id}"
-            cached_state_raw = await self.redis_client.get(redis_state_key)
-            cached_state = json.loads(cached_state_raw) if cached_state_raw else {}
-
-            # Update Redis with merged state
-            cached_state.update(payload)
-            await self.redis_client.set(redis_state_key, json.dumps(cached_state))
-
-            # Broadcast FULL payload immediately for real-time responsiveness
-            # Skipping delta calculation to ensure UI gets exact values instantly
+            # 2. IMMEDIATE Broadcast (Zero-latency path)
+            # Send payload to UI before ANY db/redis blocking calls
             update_msg = {"type": msg_type, "machine_id": machine_id, "data": payload}
             asyncio.create_task(manager.broadcast_to_machine(machine_id, update_msg))
             asyncio.create_task(manager.broadcast_to_company(company_id, update_msg))
 
+            # 3. Update Redis Cache (Background Task)
+            # Retrieve current state to merge new payload
+            redis_state_key = f"machine_state:{machine_id}"
+            
+            # Use 'create_task' to not block the next message processing
+            async def update_redis_cache():
+                try:
+                    cached_state_raw = await self.redis_client.get(redis_state_key)
+                    cached_state = json.loads(cached_state_raw) if cached_state_raw else {}
+                    cached_state.update(payload)
+                    await self.redis_client.set(redis_state_key, json.dumps(cached_state))
+                except Exception as e:
+                    logger.error(f"Redis update failed for {machine_id}: {e}")
+
+            asyncio.create_task(update_redis_cache())
+
+            # 4. Process Persistence (Background)
             if msg_type == "telemetry":
                 await self.queue_telemetry(machine_id, payload)
             elif msg_type == "status":
-                # Asynchronously update status in DB to maintain dashboard persistence
                 asyncio.create_task(self.update_status_db(machine_id, payload))
 
         except Exception as e:

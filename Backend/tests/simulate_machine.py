@@ -118,7 +118,7 @@ async def simulate_single_machine(client, company_id, machine_serial):
                 last_sent["telemetry"] = now
                 last_values["temp"] = curr_temp
 
-            await asyncio.sleep(1) # Check every second
+            await asyncio.sleep(0.1) # High precision tick
         except Exception as e:
             print(f"❌ Error in machine {machine_serial}: {e}")
             break

@@ -42,37 +42,52 @@ class ConnectionManager:
     async def broadcast_to_machine(self, machine_id: int, message: dict):
         if machine_id in self.active_connections:
             message_str = json.dumps(message)
-            for connection in self.active_connections[machine_id]:
-                try:
-                    await connection.send_text(message_str)
-                except Exception:
-                    pass
+            tasks = [connection.send_text(message_str) for connection in self.active_connections[machine_id]]
+            if tasks:
+                await asyncio.gather(*tasks, return_exceptions=True)
 
     async def broadcast_to_company(self, company_id: int, message: dict):
         if company_id in self.company_connections:
             message_str = json.dumps(message)
-            for connection in self.company_connections[company_id]:
-                try:
-                    await connection.send_text(message_str)
-                except Exception:
-                    pass
+            tasks = [connection.send_text(message_str) for connection in self.company_connections[company_id]]
+            if tasks:
+                await asyncio.gather(*tasks, return_exceptions=True)
 
 manager = ConnectionManager()
 
 @router.websocket("/company/{company_id}")
 async def websocket_company_endpoint(websocket: WebSocket, company_id: int):
     await manager.connect_company(websocket, company_id)
+    
+    # Start Heartbeat
+    heartbeat_task = asyncio.create_task(keep_alive(websocket))
+    
     try:
         while True:
             await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect_company(websocket, company_id)
+        heartbeat_task.cancel()
 
 @router.websocket("/{machine_id}")
 async def websocket_endpoint(websocket: WebSocket, machine_id: int):
     await manager.connect(websocket, machine_id)
+    
+    # Start Heartbeat
+    heartbeat_task = asyncio.create_task(keep_alive(websocket))
+    
     try:
         while True:
             await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket, machine_id)
+        heartbeat_task.cancel()
+
+async def keep_alive(websocket: WebSocket):
+    """Sends a ping every 5 seconds to keep the connection alive."""
+    try:
+        while True:
+            await asyncio.sleep(5)
+            await websocket.send_text(json.dumps({"type": "heartbeat"}))
+    except Exception:
+        pass
