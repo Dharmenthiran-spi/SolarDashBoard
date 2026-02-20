@@ -12,4 +12,4 @@ echo "Database is up!"
 
 # Start the application
 echo "Starting Uvicorn..."
-exec uvicorn solar_backend.main:app --host 0.0.0.0 --port 8006
+exec uvicorn solar_backend.main:app --host 0.0.0.0 --port 8006 --proxy-headers --forwarded-allow-ips='*'

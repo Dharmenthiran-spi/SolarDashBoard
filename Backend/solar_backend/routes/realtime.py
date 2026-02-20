@@ -6,7 +6,7 @@ from typing import List, Dict
 
 router = APIRouter(
     prefix="/realtime",
-    tags=["Realtime"],
+    tags=["Realtimecd .."],
     redirect_slashes=False
 )
 
@@ -16,11 +16,12 @@ async def health_check():
 
 @router.get("/company/{company_id}")
 async def debug_company_ws_path(company_id: int):
-    """Diagnostic route to check if path is reachable via HTTP."""
+    """Diagnostic route to confirm proxy header stripping."""
     return {
-        "message": "You reached the HTTP GET version of this path.",
-        "hint": "If you intended to connect via WebSocket, your proxy/server is likely stripping the 'Upgrade' header.",
-        "path": f"/realtime/company/{company_id}"
+        "status": "INFRASTRUCTURE_ERROR",
+        "message": "Your WebSocket handshake was downgraded to HTTP.",
+        "cause": "A proxy (like Nginx) is stripping the 'Upgrade' and 'Connection' headers.",
+        "action_required": "Enable WebSocket support in your proxy configuration (Add: proxy_set_header Upgrade $http_upgrade; proxy_set_header Connection 'upgrade';)"
     }
 
 logger = logging.getLogger(__name__)

@@ -13,3 +13,5 @@ email-validator
 PyJWT
 aiomqtt
 redis
+websockets
+uvloop
