@@ -35,8 +35,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final globalState = context.read<GlobalState>();
 
       dashVM.fetchSummary();
-      statusVM.fetchAllLiveStatus(); // Fetch immediate state via HTTP so UI is instant
-      
+      statusVM
+          .fetchAllLiveStatus(); // Fetch immediate state via HTTP so UI is instant
+
       if (globalState.currentUser?.companyId != null) {
         statusVM.connectToCompany(globalState.currentUser!.companyId!);
         statusVM.startSmartPolling(); // Start backup polling logic
@@ -99,23 +100,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
               return const Center(child: Text('No data available'));
             }
 
-            return SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildModernHeader(context, isDark),
-                  const SizedBox(height: 16),
-                  _buildLiveStatusGrid(
-                    context,
-                    dashVM,
-                    isDark,
-                  ), // statusVM removed
-                  const SizedBox(height: 16),
-                  _buildSplitHUD(context, dashVM, isDark),
-                  const SizedBox(height: 24),
-                  _buildAnalyticsSection(context, dashVM, isDark),
-                ],
+            return Container(
+              decoration: BoxDecoration(
+                gradient: isDark
+                    ? RadialGradient(
+                        center: const Alignment(-0.8, -0.6),
+                        radius: 1.2,
+                        colors: [
+                          Colors.blueAccent.withOpacity(0.05),
+                          Colors.transparent,
+                        ],
+                        stops: const [0, 1],
+                      )
+                    : null,
+              ),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildModernHeader(context, isDark),
+                    const SizedBox(height: 24),
+                    _buildFleetIntelligence(context, dashVM, isDark),
+                    const SizedBox(height: 32),
+                    _buildMainDashboardLayout(context, dashVM, isDark),
+                    const SizedBox(height: 24),
+                  ],
+                ),
               ),
             );
           },
@@ -198,47 +209,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildSplitHUD(
-    BuildContext context,
-    DashboardViewModel dashVM,
-    bool isDark,
-  ) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        bool isWide = constraints.maxWidth > 1100;
-        if (isWide) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                flex: 2,
-                child: _buildMachinePulseSection(
-                  context,
-                  dashVM,
-                  isDark,
-                  hideHeader: true,
-                ),
-              ),
-              const SizedBox(width: 20),
-              Expanded(
-                flex: 1,
-                child: _buildFleetIntelligence(context, dashVM, isDark),
-              ),
-            ],
-          );
-        } else {
-          return Column(
-            children: [
-              _buildFleetIntelligence(context, dashVM, isDark),
-              const SizedBox(height: 20),
-              _buildMachinePulseSection(context, dashVM, isDark),
-            ],
-          );
-        }
-      },
-    );
-  }
-
   Widget _buildFleetIntelligence(
     BuildContext context,
     DashboardViewModel dashVM,
@@ -262,142 +232,232 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
         double utilization =
             (active /
-                (dashVM.allMachines.length > 0
+                (dashVM.allMachines.isNotEmpty
                     ? dashVM.allMachines.length
                     : 1)) *
             100;
 
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(20),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              height: 300,
-              decoration: BoxDecoration(
-                color: isDark
-                    ? Colors.white.withOpacity(0.04)
-                    : Colors.black.withOpacity(0.02),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.white.withOpacity(0.1)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            int crossAxisCount = constraints.maxWidth < 600
+                ? 2
+                : (constraints.maxWidth < 1200 ? 4 : 4);
+            return GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: crossAxisCount,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+              childAspectRatio: constraints.maxWidth < 600 ? 1.1 : 2.0,
+              children: [
+                _buildFleetChartCard(active, error, idle, utilization, isDark),
+                _buildFleetStatCard('ACTIVE', '$active', Icons.bolt_rounded, [
+                  Colors.greenAccent,
+                  Colors.tealAccent,
+                ], isDark),
+                _buildFleetStatCard(
+                  'CRITICAL',
+                  '$error',
+                  Icons.warning_rounded,
+                  [Colors.redAccent, Colors.orangeAccent],
+                  isDark,
+                ),
+                _buildFleetStatCard(
+                  'UTILIZATION',
+                  '${utilization.toStringAsFixed(0)}%',
+                  Icons.shutter_speed_rounded,
+                  [Colors.blueAccent, Colors.indigoAccent],
+                  isDark,
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildFleetChartCard(
+    int active,
+    int error,
+    int idle,
+    double utilization,
+    bool isDark,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withOpacity(0.04)
+            : Colors.black.withOpacity(0.02),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        boxShadow: [
+          if (!isDark)
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 8, bottom: 4),
+                  child: Text(
+                    'FLEET DISTRIBUTION',
+                    style: GoogleFonts.inter(
+                      fontSize: 8,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.grey.withOpacity(0.8),
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Stack(
+                    alignment: Alignment.center,
                     children: [
+                      PieChart(
+                        PieChartData(
+                          sectionsSpace: 4,
+                          centerSpaceRadius: 36,
+                          sections: [
+                            PieChartSectionData(
+                              value: active.toDouble(),
+                              color: Colors.greenAccent,
+                              radius: 12,
+                              showTitle: false,
+                            ),
+                            PieChartSectionData(
+                              value: error.toDouble(),
+                              color: Colors.redAccent,
+                              radius: 12,
+                              showTitle: false,
+                            ),
+                            PieChartSectionData(
+                              value: idle.toDouble(),
+                              color: Colors.orangeAccent,
+                              radius: 12,
+                              showTitle: false,
+                            ),
+                          ],
+                        ),
+                      ),
+                      Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '${utilization.toStringAsFixed(0)}%',
+                              style: GoogleFonts.outfit(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.blueAccent,
+                              ),
+                            ),
+                            Text(
+                              'LOAD',
+                              style: GoogleFonts.inter(
+                                fontSize: 7,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey,
+                                letterSpacing: 1.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFleetStatCard(
+    String label,
+    String value,
+    IconData icon,
+    List<Color> colors,
+    bool isDark,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withOpacity(0.04)
+            : Colors.black.withOpacity(0.02),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: colors.first.withOpacity(0.2), width: 1.5),
+        boxShadow: [
+          if (!isDark)
+            BoxShadow(
+              color: colors.first.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Stack(
+              children: [
+                Positioned(
+                  top: 12,
+                  left: 12,
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          colors.first.withOpacity(0.2),
+                          colors.last.withOpacity(0.1),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(icon, color: colors.first, size: 18),
+                  ),
+                ),
+                Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(height: 20), // Compensate for top icon
                       Text(
-                        'FLEET INTELLIGENCE',
+                        label,
                         style: GoogleFonts.inter(
-                          fontSize: 10,
+                          fontSize: 9,
                           fontWeight: FontWeight.w900,
                           color: Colors.grey,
                           letterSpacing: 1.5,
                         ),
                       ),
-                      _PulsingDot(color: Colors.blueAccent, size: 6),
+                      const SizedBox(height: 4),
+                      Text(
+                        value,
+                        style: GoogleFonts.outfit(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -1,
+                        ),
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 20),
-                  Expanded(
-                    child: Row(
-                      children: [
-                        // Pie Chart Section
-                        Expanded(
-                          flex: 4,
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              PieChart(
-                                PieChartData(
-                                  sectionsSpace: 4,
-                                  centerSpaceRadius: 35,
-                                  sections: [
-                                    PieChartSectionData(
-                                      value: active.toDouble(),
-                                      color: Colors.greenAccent,
-                                      radius: 8,
-                                      showTitle: false,
-                                    ),
-                                    PieChartSectionData(
-                                      value: error.toDouble(),
-                                      color: Colors.redAccent,
-                                      radius: 8,
-                                      showTitle: false,
-                                    ),
-                                    PieChartSectionData(
-                                      value: idle.toDouble(),
-                                      color: Colors.orangeAccent,
-                                      radius: 8,
-                                      showTitle: false,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    '${utilization.toStringAsFixed(0)}%',
-                                    style: GoogleFonts.outfit(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w900,
-                                      color: Colors.blueAccent,
-                                    ),
-                                  ),
-                                  Text(
-                                    'LOAD',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 7,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 20),
-                        // Stats Column Section
-                        Expanded(
-                          flex: 6,
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              _buildInsightRow(
-                                'Active',
-                                '$active',
-                                Colors.greenAccent,
-                              ),
-                              _buildInsightRow(
-                                'Critical',
-                                '$error',
-                                Colors.redAccent,
-                              ),
-                              _buildInsightRow(
-                                'Reserve',
-                                '${dashVM.summary?.totalEnergyGenerated.toStringAsFixed(0)}k',
-                                Colors.amberAccent,
-                              ),
-                              _buildInsightRow(
-                                'Util.',
-                                '${utilization.toStringAsFixed(0)}%',
-                                Colors.blueAccent,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ),
-        );
-      },
+        ),
+      ),
     );
   }
 
@@ -424,30 +484,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   Row(
                     children: [
                       Container(
-                        width: 6,
-                        height: 6,
-                        decoration: const BoxDecoration(
-                          color: Colors.greenAccent,
-                          shape: BoxShape.circle,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.blueAccent.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: Colors.blueAccent.withOpacity(0.2),
+                          ),
+                        ),
+                        child: Text(
+                          'LOG',
+                          style: GoogleFonts.jetBrainsMono(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.blueAccent,
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 12),
                       Text(
                         'LIVE PRODUCTION FEED',
-                        style: GoogleFonts.inter(
-                          fontSize: 10,
+                        style: GoogleFonts.outfit(
+                          fontSize: 14,
                           fontWeight: FontWeight.w900,
-                          color: isDark ? Colors.white : Colors.black87,
+                          color: isDark
+                              ? Colors.white.withOpacity(0.9)
+                              : Colors.black87,
                           letterSpacing: 1.5,
                         ),
                       ),
                     ],
                   ),
-                  Icon(
-                    Icons.sensors_rounded,
-                    size: 14,
-                    color: Colors.greenAccent.withOpacity(0.7),
-                  ),
+                  _PulsingDot(color: Colors.greenAccent, size: 8),
                 ],
               ),
               const SizedBox(height: 16),
@@ -479,6 +550,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             'Machine #${r['machine_id']} recorded ${r['energy']} kWh',
                             index == 0 ? Colors.greenAccent : Colors.blueAccent,
                             isDark,
+                            area: r['area']?.toString(),
+                            water: r['water']?.toString(),
                           );
                         },
                       ),
@@ -490,74 +563,109 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildLogItem(String time, String message, Color color, bool isDark) {
+  Widget _buildLogItem(
+    String time,
+    String message,
+    Color color,
+    bool isDark, {
+    String? area,
+    String? water,
+  }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            time,
-            style: GoogleFonts.jetBrainsMono(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: isDark ? Colors.white54 : Colors.black54,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Container(
-            width: 2,
-            height: 14,
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.3),
-              borderRadius: BorderRadius.circular(1),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              message,
-              style: GoogleFonts.inter(
-                fontSize: 12,
-                color: isDark ? Colors.white70 : Colors.black87,
-                height: 1.4,
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.white.withOpacity(0.02)
+              : Colors.black.withOpacity(0.01),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.1)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center, // Centered vertically
+          children: [
+            Container(
+              width: 45,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    time,
+                    style: GoogleFonts.jetBrainsMono(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: color.withOpacity(0.8),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  _PulsingDot(color: color, size: 4),
+                ],
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    message,
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white.withOpacity(0.9) : Colors.black87,
+                    ),
+                  ),
+                  if (message.contains('recorded')) // Show extra telemetry if it's an energy record
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Row(
+                        children: [
+                          if (area != null) ...[
+                            _buildLogDetailTag('AREA', area, Colors.blueAccent, isDark),
+                            const SizedBox(width: 8),
+                          ],
+                          if (water != null)
+                            _buildLogDetailTag('WATER', water, Colors.cyanAccent, isDark),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildInsightRow(String label, String value, Color color) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+  Widget _buildLogDetailTag(String label, String value, Color color, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                label,
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.grey,
-                ),
-              ),
-            ],
+          Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 7,
+              fontWeight: FontWeight.w900,
+              color: Colors.grey,
+            ),
           ),
+          const SizedBox(width: 4),
           Text(
             value,
             style: GoogleFonts.jetBrainsMono(
-              fontSize: 13,
+              fontSize: 8,
               fontWeight: FontWeight.bold,
+              color: color,
             ),
           ),
         ],
@@ -565,475 +673,57 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildLiveStatusGrid(
+  Widget _buildMainDashboardLayout(
     BuildContext context,
     DashboardViewModel dashVM,
     bool isDark,
   ) {
-    final summary = dashVM.summary;
-    if (summary == null) return const SizedBox();
-
     return LayoutBuilder(
       builder: (context, constraints) {
-        int crossAxisCount = constraints.maxWidth < 600
-            ? 2
-            : (constraints.maxWidth < 1200 ? 4 : 4);
-        return GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: crossAxisCount,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-          childAspectRatio: constraints.maxWidth < 600
-              ? 1.4
-              : 3.2, // Much slimmer
-          children: [
-            _buildKPICard(
-              'CONSUMED ENERGY',
-              summary.totalEnergyGenerated.toStringAsFixed(1),
-              'kWh',
-              '↑ 12%',
-              Icons.bolt_rounded,
-              Colors.amber,
-              isDark,
-            ),
-            _buildKPICard(
-              'USED WATER',
-              summary.totalWaterUsage.toStringAsFixed(0),
-              'Litres',
-              'Stable',
-              Icons.water_drop_rounded,
-              Colors.cyan,
-              isDark,
-            ),
-            _buildKPICard(
-              'LOADED MACHINES',
-              '${summary.totalMachines}',
-              'Units',
-              '100% OK',
-              Icons.precision_manufacturing_rounded,
-              Colors.indigoAccent,
-              isDark,
-            ),
-            _buildKPICard(
-              'RECENT LOGS',
-              '${summary.totalReports}',
-              'Entry',
-              'Real-time',
-              Icons.analytics_rounded,
-              Colors.purpleAccent,
-              isDark,
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildKPICard(
-    String label,
-    String value,
-    String unit,
-    String trend,
-    IconData icon,
-    Color color,
-    bool isDark,
-  ) {
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? Theme.of(context).cardColor : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.15), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Stack(
-        children: [
-          Positioned(
-            right: -10,
-            bottom: -10,
-            child: Icon(icon, size: 60, color: color.withOpacity(0.04)),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: color.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(icon, color: color, size: 18),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.greenAccent.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        trend,
-                        style: GoogleFonts.inter(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.greenAccent,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      style: GoogleFonts.inter(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.grey,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        Text(
-                          value,
-                          style: GoogleFonts.outfit(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          unit,
-                          style: GoogleFonts.inter(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAnalyticsSection(
-    BuildContext context,
-    DashboardViewModel viewModel,
-    bool isDark,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'PRODUCTION ANALYTICS',
-          style: GoogleFonts.inter(
-            fontSize: 17,
-            fontWeight: FontWeight.w900,
-            color: Colors.grey,
-            letterSpacing: 1.5,
-          ),
-        ),
-        const SizedBox(height: 16),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            bool isWide = constraints.maxWidth > 1100;
-            return GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: isWide ? 3 : 1,
-              crossAxisSpacing: 20,
-              mainAxisSpacing: 20,
-              childAspectRatio: isWide ? 1.4 : 1.5,
-              children: [
-                _buildDeepChart(
-                  context,
-                  'ENERGY HARVEST RATE',
-                  viewModel,
-                  true,
-                  isDark,
-                  duration: viewModel.energyDuration,
-                  onToggle: (days) => viewModel.toggleEnergyDuration(days),
-                ),
-                _buildDeepChart(
-                  context,
-                  'WATER CONSUMPTION',
-                  viewModel,
-                  false,
-                  isDark,
-                  duration: viewModel.waterDuration,
-                  onToggle: (days) => viewModel.toggleWaterDuration(days),
-                ),
-                _buildSystemLogCard(
-                  isDark,
-                  viewModel.summary?.recentReports ?? [],
-                ),
-              ],
-            );
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDeepChart(
-    BuildContext context,
-    String title,
-    DashboardViewModel viewModel,
-    bool isEnergy,
-    bool isDark, {
-    required int duration,
-    required Function(int) onToggle,
-  }) {
-    List<DailyGraphicData> data = isEnergy
-        ? viewModel.energyData
-        : viewModel.waterData;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: Theme.of(context).dividerColor.withOpacity(0.05),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        bool isWide = constraints.maxWidth > 900;
+        if (isWide) {
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                title,
-                style: GoogleFonts.inter(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.grey,
-                  letterSpacing: 1.5,
+              Expanded(
+                flex: 2,
+                child: _buildMachinePulseSection(
+                  context,
+                  dashVM,
+                  isDark,
+                  hideHeader: false,
                 ),
               ),
-              Container(
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? Colors.white.withOpacity(0.05)
-                      : Colors.black.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildToggleButton(
-                      '7D',
-                      duration == 7,
-                      isDark,
-                      () => onToggle(7),
-                    ),
-                    _buildToggleButton(
-                      '30D',
-                      duration == 30,
-                      isDark,
-                      () => onToggle(30),
-                    ),
-                  ],
+              const SizedBox(width: 20),
+              Expanded(
+                flex: 1,
+                child: SizedBox(
+                  height: 600, // Fixed height for log area in two-column mode
+                  child: _buildSystemLogCard(
+                    isDark,
+                    dashVM.summary?.recentReports ?? [],
+                  ),
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 20),
-          Expanded(child: _buildChart(data, isEnergy, isDark)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildToggleButton(
-    String label,
-    bool isActive,
-    bool isDark,
-    VoidCallback onTap,
-  ) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isActive
-              ? (isDark
-                    ? Colors.blueAccent.withOpacity(0.2)
-                    : Colors.blueAccent)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          label,
-          style: GoogleFonts.inter(
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-            color: isActive
-                ? (isDark ? Colors.blueAccent : Colors.white)
-                : Colors.grey,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildChart(List<DailyGraphicData> data, bool isEnergy, bool isDark) {
-    if (data.isEmpty) return const SizedBox();
-
-    // Determine min/max for scaling
-    double maxY = data.map((e) => e.value).reduce((a, b) => a > b ? a : b);
-    maxY = maxY * 1.2; // Add headroom
-
-    if (isEnergy) {
-      // Energy -> Line Chart
-      return LineChart(
-        LineChartData(
-          gridData: FlGridData(show: false),
-          titlesData: FlTitlesData(
-            leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            bottomTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                getTitlesWidget: (value, meta) {
-                  int index = value.toInt();
-                  if (index < 0 || index >= data.length)
-                    return const SizedBox();
-                  if (index == 0 ||
-                      index == data.length - 1 ||
-                      index == data.length ~/ 2) {
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
-                      child: Text(
-                        data[index].date.substring(5),
-                        style: GoogleFonts.inter(
-                          fontSize: 9,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    );
-                  }
-                  return const SizedBox();
-                },
-              ),
-            ),
-          ),
-          borderData: FlBorderData(show: false),
-          minX: 0,
-          maxX: (data.length - 1).toDouble(),
-          minY: 0,
-          maxY: maxY,
-          lineBarsData: [
-            LineChartBarData(
-              spots: data
-                  .asMap()
-                  .entries
-                  .map((e) => FlSpot(e.key.toDouble(), e.value.value))
-                  .toList(),
-              isCurved: true,
-              color: Colors.orangeAccent,
-              barWidth: 3,
-              isStrokeCapRound: true,
-              dotData: FlDotData(show: false),
-              belowBarData: BarAreaData(
-                show: true,
-                color: Colors.orangeAccent.withOpacity(0.1),
-              ),
-            ),
-          ],
-        ),
-      );
-    } else {
-      // Water -> Bar Chart
-      return BarChart(
-        BarChartData(
-          gridData: FlGridData(show: false),
-          titlesData: FlTitlesData(
-            leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            bottomTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                getTitlesWidget: (value, meta) {
-                  int index = value.toInt();
-                  if (index < 0 || index >= data.length)
-                    return const SizedBox();
-                  if (index == 0 ||
-                      index == data.length - 1 ||
-                      index == data.length ~/ 2) {
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
-                      child: Text(
-                        data[index].date.substring(5),
-                        style: GoogleFonts.inter(
-                          fontSize: 9,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    );
-                  }
-                  return const SizedBox();
-                },
-              ),
-            ),
-          ),
-          borderData: FlBorderData(show: false),
-          barGroups: data.asMap().entries.map((e) {
-            return BarChartGroupData(
-              x: e.key,
-              barRods: [
-                BarChartRodData(
-                  toY: e.value.value,
-                  color: Colors.cyanAccent,
-                  width: 6,
-                  borderRadius: BorderRadius.circular(2),
-                  backDrawRodData: BackgroundBarChartRodData(
-                    show: true,
-                    toY: maxY,
-                    color: isDark ? Colors.white10 : Colors.black12,
-                  ),
+          );
+        } else {
+          return Column(
+            children: [
+              _buildMachinePulseSection(context, dashVM, isDark),
+              const SizedBox(height: 20),
+              SizedBox(
+                height: 400,
+                child: _buildSystemLogCard(
+                  isDark,
+                  dashVM.summary?.recentReports ?? [],
                 ),
-              ],
-            );
-          }).toList(),
-        ),
-      );
-    }
+              ),
+            ],
+          );
+        }
+      },
+    );
   }
 
   Widget _buildMachinePulseSection(
@@ -1052,51 +742,72 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'OPERATIONS PULSE',
-                    style: GoogleFonts.outfit(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Row(
+                    children: [
+                      Container(
+                        width: 12,
+                        height: 2,
+                        decoration: BoxDecoration(
+                          color: Colors.blueAccent,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'OPERATIONS PULSE',
+                        style: GoogleFonts.outfit(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 2,
+                          color: isDark
+                              ? Colors.white.withOpacity(0.9)
+                              : Colors.black87,
+                        ),
+                      ),
+                    ],
                   ),
+                  const SizedBox(height: 4),
                   Text(
-                    'Live machine telemetry and system status',
-                    style: GoogleFonts.inter(fontSize: 12, color: Colors.grey),
+                    'Real-time telemetry and fleet synchronization',
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey.withOpacity(0.7),
+                      letterSpacing: 0.5,
+                    ),
                   ),
                 ],
               ),
               _buildLiveBadge(),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
         ],
-        SizedBox(
-          height: 300, // Slightly reduced height
-          child: GridView.builder(
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: Responsive.value(
-                context: context,
-                mobile: 1,
-                tablet: 2,
-                desktop: hideHeader ? 2 : 3, // Fewer columns if in side-HUD
-              ),
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 1.8,
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: Responsive.value(
+              context: context,
+              mobile: 1,
+              tablet: 1,
+              desktop: 2,
             ),
-            physics: const BouncingScrollPhysics(),
-            itemCount: dashVM.allMachines.length,
-            itemBuilder: (context, index) {
-              final machine = dashVM.allMachines[index];
-              return InkWell(
-                onTap: () {
-                  dashVM.selectMachine(machine);
-                  context.push(RouteNames.machineDetail, extra: machine);
-                },
-                child: _buildPulseCard(context, machine, isDark),
-              );
-            },
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 1.4,
           ),
+          itemCount: dashVM.allMachines.length,
+          itemBuilder: (context, index) {
+            final machine = dashVM.allMachines[index];
+            return InkWell(
+              onTap: () {
+                dashVM.selectMachine(machine);
+                context.push(RouteNames.machineDetail, extra: machine);
+              },
+              child: _buildPulseCard(context, machine, isDark),
+            );
+          },
         ),
       ],
     );
@@ -1140,141 +851,196 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
         bool hasAlert = status?.status == 'Error';
 
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(20),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Container(
-              decoration: BoxDecoration(
-                color: isDark
-                    ? Colors.white.withOpacity(0.04)
-                    : Colors.black.withOpacity(0.02),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: hasAlert
-                      ? Colors.redAccent.withOpacity(0.5)
-                      : Colors.white.withOpacity(0.1),
-                  width: hasAlert ? 1.5 : 1,
-                ),
-              ),
-              child: Column(
-                children: [
-                  // Header Segment
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    color: Colors.white.withOpacity(0.03),
-                    child: Row(
-                      children: [
-                        _buildMachineIcon(machine, isDark),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                machine.name,
-                                style: GoogleFonts.outfit(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              Row(
-                                children: [
-                                  _PulsingDot(color: statusColor, size: 6),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    status?.status.toUpperCase() ?? 'OFFLINE',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 8,
-                                      fontWeight: FontWeight.w900,
-                                      color: statusColor,
-                                      letterSpacing: 1,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (hasAlert)
-                          _PulsingDot(color: Colors.redAccent, size: 8),
-                      ],
-                    ),
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withOpacity(0.04)
+                      : Colors.black.withOpacity(0.02),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: hasAlert
+                        ? Colors.redAccent.withOpacity(0.4)
+                        : Colors.white.withOpacity(0.08),
+                    width: hasAlert ? 1.5 : 0.8,
                   ),
-                  // Data Grid Segment
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(10, 8, 10, 12),
-                      child: GridView.count(
-                        shrinkWrap: true,
-                        crossAxisCount: 3,
-                        crossAxisSpacing: 6,
-                        mainAxisSpacing: 6,
-                        childAspectRatio: 1.8,
-                        physics: const NeverScrollableScrollPhysics(),
+                ),
+                child: Column(
+                  children: [
+                    // Header Segment
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      color: Colors.white.withOpacity(0.03),
+                      child: Row(
                         children: [
-                          _buildCompactTile(
-                            'BATT',
-                            status != null
-                                ? '${status.batteryLevel.toInt()}%'
-                                : '--',
-                            status != null && status.batteryLevel < 20
-                                ? Colors.redAccent
-                                : Colors.greenAccent,
-                            Icons.bolt_rounded,
+                          _buildMachineIcon(machine, isDark),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: statusColor.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: statusColor.withOpacity(0.3)),
+                                  ),
+                                  child: Text(
+                                    machine.name,
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: statusColor,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    _PulsingDot(color: statusColor, size: 6),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      status?.status.toUpperCase() ?? 'OFFLINE',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 8,
+                                        fontWeight: FontWeight.w900,
+                                        color: isDark ? Colors.white70 : Colors.black54,
+                                        letterSpacing: 1,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
-                          _buildCompactTile(
-                            'WATER',
-                            status != null
-                                ? '${status.waterLevel.toInt()}%'
-                                : '--',
-                            status != null && status.waterLevel < 15
-                                ? Colors.redAccent
-                                : Colors.cyanAccent,
-                            Icons.water_drop_rounded,
+                          if (hasAlert)
+                            _PulsingDot(color: Colors.redAccent, size: 8),
+                        ],
+                      ),
+                    ),
+                    // Data Grid Segment
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(10, 8, 10, 0), // Removed bottom padding
+                        child: GridView.count(
+                          shrinkWrap: true,
+                          crossAxisCount: 3,
+                          crossAxisSpacing: 6,
+                          mainAxisSpacing: 6,
+                          childAspectRatio: 1.8,
+                          physics: const NeverScrollableScrollPhysics(),
+                          children: [
+                            _buildCompactTile(
+                              'BATT',
+                              status != null
+                                  ? '${status.batteryLevel.toInt()}%'
+                                  : '--',
+                              status != null && status.batteryLevel < 20
+                                  ? Colors.redAccent
+                                  : Colors.greenAccent,
+                              Icons.bolt_rounded,
+                            ),
+                            _buildCompactTile(
+                              'WATER',
+                              status != null
+                                  ? '${status.waterLevel.toInt()}%'
+                                  : '--',
+                              status != null && status.waterLevel < 15
+                                  ? Colors.redAccent
+                                  : Colors.cyanAccent,
+                              Icons.water_drop_rounded,
+                            ),
+                            _buildCompactTile(
+                              'MOTOR',
+                              status != null ? '${status.brushRPM}' : '--',
+                              Colors.orangeAccent,
+                              Icons.sync_rounded,
+                            ),
+                            _buildCompactTile(
+                              'TEMP',
+                              status != null
+                                  ? '${status.brushTemp.toInt()}°C'
+                                  : '--',
+                              status != null && status.brushTemp > 60
+                                  ? Colors.redAccent
+                                  : Colors.amberAccent,
+                              Icons.thermostat_rounded,
+                            ),
+                            _buildCompactTile(
+                              'SPEED',
+                              status != null
+                                  ? status.speed.toStringAsFixed(1)
+                                  : '--',
+                              Colors.indigoAccent,
+                              Icons.speed_rounded,
+                            ),
+                            _buildCompactTile(
+                              'PERF',
+                              status != null
+                                  ? '${status.areaToday.toInt()}m²'
+                                  : '--',
+                              Colors.blueAccent,
+                              Icons.auto_graph_rounded,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // Action Buttons Segment (Moved to Bottom)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(10, 0, 10, 12),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _buildActionButton(
+                              context,
+                              machine.id,
+                              'START',
+                              Icons.bolt_rounded,
+                              Colors.greenAccent,
+                              isDark,
+                            ),
                           ),
-                          _buildCompactTile(
-                            'MOTOR',
-                            status != null ? '${status.brushRPM}' : '--',
-                            Colors.orangeAccent,
-                            Icons.sync_rounded,
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _buildActionButton(
+                              context,
+                              machine.id,
+                              'STOP',
+                              Icons.power_settings_new_rounded,
+                              Colors.redAccent,
+                              isDark,
+                            ),
                           ),
-                          _buildCompactTile(
-                            'TEMP',
-                            status != null
-                                ? '${status.brushTemp.toInt()}°C'
-                                : '--',
-                            status != null && status.brushTemp > 60
-                                ? Colors.redAccent
-                                : Colors.amberAccent,
-                            Icons.thermostat_rounded,
-                          ),
-                          _buildCompactTile(
-                            'SPEED',
-                            status != null
-                                ? status.speed.toStringAsFixed(1)
-                                : '--',
-                            Colors.indigoAccent,
-                            Icons.speed_rounded,
-                          ),
-                          _buildCompactTile(
-                            'PERF',
-                            status != null
-                                ? '${status.areaToday.toInt()}m²'
-                                : '--',
-                            Colors.blueAccent,
-                            Icons.auto_graph_rounded,
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _buildActionButton(
+                              context,
+                              machine.id,
+                              'DOCK',
+                              Icons.anchor_rounded,
+                              Colors.blueAccent,
+                              isDark,
+                            ),
                           ),
                         ],
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -1290,38 +1056,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
     IconData icon,
   ) {
     return Container(
-      padding: const EdgeInsets.all(4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.02),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white.withOpacity(0.04)),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 8, color: color.withOpacity(0.7)),
-              const SizedBox(width: 4),
+              Icon(icon, size: 10, color: color.withOpacity(0.8)),
+              const SizedBox(width: 6),
               Text(
                 label,
                 style: GoogleFonts.inter(
-                  fontSize: 10,
+                  fontSize: 9,
                   fontWeight: FontWeight.w900,
-                  color: Colors.grey,
-                  letterSpacing: 0.5,
+                  color: Colors.grey.withOpacity(0.7),
+                  letterSpacing: 1,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 6),
           FittedBox(
             child: Text(
               value,
               style: GoogleFonts.jetBrainsMono(
-                fontSize: 15,
+                fontSize: 16,
                 fontWeight: FontWeight.w800,
+                letterSpacing: -0.5,
               ),
             ),
           ),
@@ -1352,6 +1119,74 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Icons.settings_input_component_rounded,
               color: Colors.blueAccent.withOpacity(0.5),
             ),
+    );
+  }
+
+  Widget _buildActionButton(
+    BuildContext context,
+    int machineId,
+    String label,
+    IconData icon,
+    Color color,
+    bool isDark,
+  ) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () async {
+          final statusVM = context.read<MachineStatusViewModel>();
+          final success = await statusVM.sendCommand(
+            machineId,
+            label.toLowerCase(),
+          );
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  success
+                      ? 'Command $label sent successfully'
+                      : 'Failed to send $label command',
+                ),
+                backgroundColor: success ? Colors.green : Colors.red,
+                duration: const Duration(seconds: 1),
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            );
+          }
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [color.withOpacity(0.15), color.withOpacity(0.05)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color.withOpacity(0.3), width: 1),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 14, color: color),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: GoogleFonts.inter(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  color: color,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

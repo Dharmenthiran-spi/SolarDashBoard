@@ -53,7 +53,7 @@ class MachineStatusViewModel extends ChangeNotifier {
 
       channel.stream.listen(
         (message) {
-          _reconnectDelay = 1; 
+          _reconnectDelay = 1;
           final data = json.decode(message);
           _handleRealtimeUpdate(machineId, data);
         },
@@ -89,7 +89,7 @@ class MachineStatusViewModel extends ChangeNotifier {
     final baseWsUrl = "${ApiConfig.wsUrl}/realtime/company/$companyId".trim();
     final sanitizedUri = Uri.parse(baseWsUrl).replace(fragment: '');
     final wsUrl = sanitizedUri.toString();
-    
+
     try {
       debugPrint('🔌 Attempting WS Connection: $wsUrl');
       final channel = WebSocketChannel.connect(Uri.parse(wsUrl));
@@ -100,8 +100,8 @@ class MachineStatusViewModel extends ChangeNotifier {
           _isConnecting = false;
           _reconnectDelay = 1; // Reset backoff on successful message
           final Map<String, dynamic> update = json.decode(message);
-          
-          if (update['type'] == 'heartbeat') return; // Ignore heartbeats
+
+          if (update['type'] == 'heartbeat') return;
 
           final machineId = update['machine_id'];
           if (machineId != null) {
@@ -133,8 +133,8 @@ class MachineStatusViewModel extends ChangeNotifier {
     debugPrint('⏳ Recovering in $_reconnectDelay seconds...');
     Future.delayed(Duration(seconds: _reconnectDelay), () {
       if (_channels.isEmpty) {
-          fetchAllLiveStatus();
-          if (_activeCompanyId != null) connectToCompany(_activeCompanyId!);
+        fetchAllLiveStatus();
+        if (_activeCompanyId != null) connectToCompany(_activeCompanyId!);
       }
       // Double the delay for next time, up to 30s
       _reconnectDelay = (_reconnectDelay * 2).clamp(1, 30);
@@ -154,91 +154,80 @@ class MachineStatusViewModel extends ChangeNotifier {
   }
 
   void _handleRealtimeUpdate(int machineId, Map<String, dynamic> update) {
-    final type = update['type'];
-    final data = update['data'];
+    try {
+      final String type = update['type'] ?? '';
+      final Map<String, dynamic> data = update['data'] ?? {};
 
-    final currentStatus =
-        _liveStatuses[machineId] ??
-        MachineStatus(
-          statusId: 0,
+      final currentStatus =
+          _liveStatuses[machineId] ??
+          MachineStatus(
+            machineId: machineId,
+            status: 'Online',
+            timestamp: DateTime.now(),
+          );
+
+      // Robust helper to extract numbers
+      double asDouble(dynamic val, double fallback) {
+        if (val == null) return fallback;
+        if (val is num) return val.toDouble();
+        if (val is String) return double.tryParse(val) ?? fallback;
+        return fallback;
+      }
+
+      int asInt(dynamic val, int fallback) {
+        if (val == null) return fallback;
+        if (val is num) return val.toInt();
+        if (val is String) return int.tryParse(val) ?? fallback;
+        return fallback;
+      }
+
+      late MachineStatus updatedStatus;
+
+      if (type == 'telemetry' || type == 'status') {
+        updatedStatus = MachineStatus(
           machineId: machineId,
-          status: 'Online',
-          energyValue: 0,
-          waterValue: 0,
-          areaValue: 0,
+          status: data['Status'] ?? data['status'] ?? currentStatus.status,
           timestamp: DateTime.now(),
+          mode: data['Mode'] ?? data['mode'] ?? currentStatus.mode,
+          batteryLevel: asDouble(
+            data['BatteryLevel'] ?? data['battery'],
+            currentStatus.batteryLevel,
+          ),
+          batteryVoltage: asDouble(
+            data['BatteryVoltage'] ?? data['solar_v'],
+            currentStatus.batteryVoltage,
+          ),
+          waterLevel: asDouble(
+            data['WaterLevel'] ?? data['water'],
+            currentStatus.waterLevel,
+          ),
+          brushRPM: asInt(
+            data['BrushRPM'] ?? data['brush_rpm'],
+            currentStatus.brushRPM,
+          ),
+          brushTemp: asDouble(
+            data['BrushTemp'] ?? data['extra']?['temp'],
+            currentStatus.brushTemp,
+          ),
+          speed: asDouble(data['Speed'] ?? data['speed'], currentStatus.speed),
+          areaToday: asDouble(
+            data['AreaToday'] ?? data['area'],
+            currentStatus.areaToday,
+          ),
+          totalCycles: asInt(
+            data['TotalCycles'] ?? data['total_cycles'],
+            currentStatus.totalCycles,
+          ),
         );
+      } else {
+        return;
+      }
 
-    late MachineStatus updatedStatus;
-
-    if (type == 'telemetry') {
-      // Merge telemetry data into existing status
-      updatedStatus = MachineStatus(
-        statusId: currentStatus.statusId,
-        machineId: machineId,
-        status: currentStatus.status,
-        energyValue: currentStatus.energyValue,
-        waterValue: currentStatus.waterValue,
-        areaValue: currentStatus.areaValue,
-        timestamp: DateTime.now(),
-        // New values from telemetry
-        batteryLevel: (data['battery'] ?? currentStatus.batteryLevel)
-            .toDouble(),
-        batteryVoltage: (data['solar_v'] ?? currentStatus.batteryVoltage)
-            .toDouble(),
-        waterLevel: (data['water'] ?? currentStatus.waterLevel).toDouble(),
-        brushTemp: (data['extra']?['temp'] ?? currentStatus.brushTemp)
-            .toDouble(),
-        // Keep others
-        mode: currentStatus.mode,
-        timer: currentStatus.timer,
-        isCharging: currentStatus.isCharging,
-        pumpStatus: currentStatus.pumpStatus,
-        brushRPM: currentStatus.brushRPM,
-        isBrushJam: currentStatus.isBrushJam,
-        speed: currentStatus.speed,
-        direction: currentStatus.direction,
-        emergencyStop: currentStatus.emergencyStop,
-        obstacleDetected: currentStatus.obstacleDetected,
-        areaToday: currentStatus.areaToday,
-        cleaningTime: currentStatus.cleaningTime,
-        totalCycles: currentStatus.totalCycles,
-      );
-    } else if (type == 'status') {
-      // Merge status data
-      updatedStatus = MachineStatus(
-        statusId: currentStatus.statusId,
-        machineId: machineId,
-        status: data['status'] ?? currentStatus.status,
-        energyValue: (data['energy'] ?? currentStatus.energyValue).toDouble(),
-        waterValue: (data['water'] ?? currentStatus.waterValue).toDouble(),
-        areaValue: (data['area'] ?? currentStatus.areaValue).toDouble(),
-        timestamp: DateTime.now(),
-        // Keep others
-        mode: currentStatus.mode,
-        timer: currentStatus.timer,
-        batteryLevel: currentStatus.batteryLevel,
-        batteryVoltage: currentStatus.batteryVoltage,
-        isCharging: currentStatus.isCharging,
-        waterLevel: currentStatus.waterLevel,
-        pumpStatus: currentStatus.pumpStatus,
-        brushRPM: currentStatus.brushRPM,
-        brushTemp: currentStatus.brushTemp,
-        isBrushJam: currentStatus.isBrushJam,
-        speed: currentStatus.speed,
-        direction: currentStatus.direction,
-        emergencyStop: currentStatus.emergencyStop,
-        obstacleDetected: currentStatus.obstacleDetected,
-        areaToday: currentStatus.areaToday,
-        cleaningTime: currentStatus.cleaningTime,
-        totalCycles: currentStatus.totalCycles,
-      );
-    } else {
-      return;
+      _liveStatuses[machineId] = updatedStatus;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('❌ Error handling realtime update for machine $machineId: $e');
     }
-
-    _liveStatuses[machineId] = updatedStatus;
-    notifyListeners();
   }
 
   Future<void> fetchAllLiveStatus() async {
@@ -254,6 +243,20 @@ class MachineStatusViewModel extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('Error fetching live status: $e');
+    }
+  }
+
+  Future<bool> sendCommand(int machineId, String action) async {
+    try {
+      final response = await MachineStatusService.sendCommand(machineId, {'action': action});
+      if (response['success']) {
+        debugPrint('Command $action sent to machine $machineId');
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('Error sending command: $e');
+      return false;
     }
   }
 

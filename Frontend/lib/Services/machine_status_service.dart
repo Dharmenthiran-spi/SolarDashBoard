@@ -12,4 +12,8 @@ class MachineStatusService {
   static Future<Map<String, dynamic>> getAllLive() async {
     return await HttpHelper.get('/machine-status/all/live');
   }
+
+  static Future<Map<String, dynamic>> sendCommand(int machineId, Map<String, dynamic> command) async {
+    return await HttpHelper.post('/machines/$machineId/command', command);
+  }
 }

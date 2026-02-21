@@ -52,7 +52,9 @@ async def get_dashboard_summary(customer_id: int = None, db: AsyncSession = Depe
             "id": r.TableID,
             "machine_id": r.MachineID,
             "start_time": r.StartTime.isoformat() if r.StartTime else None,
-            "energy": r.EnergyConsumption
+            "energy": r.EnergyConsumption,
+            "water": r.WaterUsage,
+            "area": r.AreaCovered
         })
 
     # Aggregates
