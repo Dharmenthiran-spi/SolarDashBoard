@@ -27,8 +27,10 @@ class _MachineDetailScreenState extends State<MachineDetailScreen> {
     super.initState();
     // Connect to WebSocket for real-time updates when screen opens
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<MachineStatusViewModel>(context, listen: false)
-          .connectToMachine(widget.machine.id);
+      Provider.of<MachineStatusViewModel>(
+        context,
+        listen: false,
+      ).connectToMachine(widget.machine.id);
     });
   }
 
@@ -55,10 +57,10 @@ class _MachineDetailScreenState extends State<MachineDetailScreen> {
                 _buildTelemetryGrid(context, status, isDark),
                 const SizedBox(height: 32),
                 _buildPerformanceGraph(context, reports, isDark),
-                const SizedBox(height: 32),
-                _buildRecentEvents(context, isDark),
-                const SizedBox(height: 32),
-                _buildCommandCenter(context, isDark),
+                // const SizedBox(height: 32),
+                // _buildRecentEvents(context, isDark),
+                // const SizedBox(height: 32),
+                // _buildCommandCenter(context, isDark),
               ],
             ),
           );
@@ -67,7 +69,11 @@ class _MachineDetailScreenState extends State<MachineDetailScreen> {
     );
   }
 
-  Widget _buildHeader(BuildContext context, MachineStatus? status, bool isDark) {
+  Widget _buildHeader(
+    BuildContext context,
+    MachineStatus? status,
+    bool isDark,
+  ) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -580,9 +586,11 @@ class _MachineDetailScreenState extends State<MachineDetailScreen> {
   ) {
     return Expanded(
       child: InkWell(
-                onTap: () async {
+        onTap: () async {
           try {
-            await MachineService.sendCommand(widget.machine.id, {"command": cmd});
+            await MachineService.sendCommand(widget.machine.id, {
+              "command": cmd,
+            });
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('Command "$label" dispatched to MQTT broker'),

@@ -16,7 +16,11 @@ class MachineStatusViewModel extends ChangeNotifier {
   int _reconnectDelay = 1; // Start with 1 second backoff
   bool _isConnecting = false;
 
+  final List<MachineStatus> _telemetryHistory = [];
+  final Map<int, String> _lastPayloads = {};
+
   Map<int, MachineStatus> get liveStatuses => _liveStatuses;
+  List<MachineStatus> get telemetryHistory => List.unmodifiable(_telemetryHistory);
 
   /// Starts polling only as a fallback when WebSockets are not healthy
   void startSmartPolling() {
@@ -158,6 +162,11 @@ class MachineStatusViewModel extends ChangeNotifier {
       final String type = update['type'] ?? '';
       final Map<String, dynamic> data = update['data'] ?? {};
 
+      // Deduplication: Skip if the data payload is identical to the last one for this machine
+      final payloadStr = json.encode(data);
+      if (_lastPayloads[machineId] == payloadStr) return;
+      _lastPayloads[machineId] = payloadStr;
+
       final currentStatus =
           _liveStatuses[machineId] ??
           MachineStatus(
@@ -224,6 +233,13 @@ class MachineStatusViewModel extends ChangeNotifier {
       }
 
       _liveStatuses[machineId] = updatedStatus;
+
+      // Add to telemetry history (last 100 items)
+      _telemetryHistory.add(updatedStatus);
+      if (_telemetryHistory.length > 100) {
+        _telemetryHistory.removeAt(0);
+      }
+
       notifyListeners();
     } catch (e) {
       debugPrint('❌ Error handling realtime update for machine $machineId: $e');

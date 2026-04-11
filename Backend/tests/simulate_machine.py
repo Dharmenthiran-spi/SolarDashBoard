@@ -119,3 +119,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+# python simulate_machine.py 1 S1 S2 // Simulates two machines (S1 and S2) for company 1 with optimized frequency.

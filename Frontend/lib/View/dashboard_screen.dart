@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import '../Config/app_routes/app_route_names.dart';
 import '../Models/dashboard_data.dart';
 import '../ViewModel/dashboard_view_model.dart';
@@ -26,6 +27,9 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  final ScrollController _machineScrollController = ScrollController();
+  final ScrollController _logScrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
@@ -47,6 +51,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   void dispose() {
+    _machineScrollController.dispose();
+    _logScrollController.dispose();
     super.dispose();
   }
 
@@ -69,8 +75,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           return const Center(child: CircularProgressIndicator());
         }
 
-        return Consumer<DashboardViewModel>(
-          builder: (context, dashVM, _) {
+        return Consumer2<DashboardViewModel, MachineStatusViewModel>(
+          builder: (context, dashVM, statusVM, _) {
             if (dashVM.errorMessage != null && dashVM.summary == null) {
               return Center(
                 child: Column(
@@ -121,9 +127,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   children: [
                     _buildModernHeader(context, isDark),
                     const SizedBox(height: 24),
-                    _buildFleetIntelligence(context, dashVM, isDark),
+                    _buildFleetIntelligence(context, dashVM, statusVM, isDark),
                     const SizedBox(height: 32),
-                    _buildMainDashboardLayout(context, dashVM, isDark),
+                    _buildMainDashboardLayout(
+                      context,
+                      dashVM,
+                      statusVM,
+                      isDark,
+                    ),
                     const SizedBox(height: 24),
                   ],
                 ),
@@ -212,66 +223,58 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildFleetIntelligence(
     BuildContext context,
     DashboardViewModel dashVM,
+    MachineStatusViewModel statusVM,
     bool isDark,
   ) {
-    return Consumer<MachineStatusViewModel>(
-      builder: (context, statusVM, _) {
-        int active = 0;
-        int error = 0;
-        int idle = 0;
+    int active = 0;
+    int error = 0;
+    int idle = 0;
 
-        for (var m in dashVM.allMachines) {
-          final s = statusVM.liveStatuses[m.id];
-          if (s?.status == 'Error')
-            error++;
-          else if (s?.status == 'Idle')
-            idle++;
-          else
-            active++;
-        }
+    for (var m in dashVM.allMachines) {
+      final s = statusVM.liveStatuses[m.id];
+      if (s?.status == 'Error')
+        error++;
+      else if (s?.status == 'Idle')
+        idle++;
+      else
+        active++;
+    }
 
-        double utilization =
-            (active /
-                (dashVM.allMachines.isNotEmpty
-                    ? dashVM.allMachines.length
-                    : 1)) *
-            100;
+    double utilization =
+        (active /
+            (dashVM.allMachines.isNotEmpty ? dashVM.allMachines.length : 1)) *
+        100;
 
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            int crossAxisCount = constraints.maxWidth < 600
-                ? 2
-                : (constraints.maxWidth < 1200 ? 4 : 4);
-            return GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: crossAxisCount,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-              childAspectRatio: constraints.maxWidth < 600 ? 1.1 : 2.0,
-              children: [
-                _buildFleetChartCard(active, error, idle, utilization, isDark),
-                _buildFleetStatCard('ACTIVE', '$active', Icons.bolt_rounded, [
-                  Colors.greenAccent,
-                  Colors.tealAccent,
-                ], isDark),
-                _buildFleetStatCard(
-                  'CRITICAL',
-                  '$error',
-                  Icons.warning_rounded,
-                  [Colors.redAccent, Colors.orangeAccent],
-                  isDark,
-                ),
-                _buildFleetStatCard(
-                  'UTILIZATION',
-                  '${utilization.toStringAsFixed(0)}%',
-                  Icons.shutter_speed_rounded,
-                  [Colors.blueAccent, Colors.indigoAccent],
-                  isDark,
-                ),
-              ],
-            );
-          },
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        int crossAxisCount = constraints.maxWidth < 600
+            ? 2
+            : (constraints.maxWidth < 1200 ? 4 : 4);
+        return GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: crossAxisCount,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+          childAspectRatio: constraints.maxWidth < 600 ? 1.1 : 2.0,
+          children: [
+            _buildFleetChartCard(active, error, idle, utilization, isDark),
+            _buildFleetStatCard('ACTIVE', '$active', Icons.bolt_rounded, [
+              Colors.greenAccent,
+              Colors.tealAccent,
+            ], isDark),
+            _buildFleetStatCard('CRITICAL', '$error', Icons.warning_rounded, [
+              Colors.redAccent,
+              Colors.orangeAccent,
+            ], isDark),
+            _buildFleetStatCard(
+              'UTILIZATION',
+              '${utilization.toStringAsFixed(0)}%',
+              Icons.shutter_speed_rounded,
+              [Colors.blueAccent, Colors.indigoAccent],
+              isDark,
+            ),
+          ],
         );
       },
     );
@@ -304,79 +307,79 @@ class _DashboardScreenState extends State<DashboardScreen> {
         borderRadius: BorderRadius.circular(24),
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 8, bottom: 4),
-                  child: Text(
-                    'FLEET DISTRIBUTION',
-                    style: GoogleFonts.inter(
-                      fontSize: 8,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.grey.withOpacity(0.8),
-                      letterSpacing: 1.2,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 8, bottom: 4),
+                child: Text(
+                  'FLEET DISTRIBUTION',
+                  style: GoogleFonts.inter(
+                    fontSize: 8,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.grey.withOpacity(0.8),
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    PieChart(
+                      PieChartData(
+                        sectionsSpace: 4,
+                        centerSpaceRadius: 36,
+                        sections: [
+                          PieChartSectionData(
+                            value: active.toDouble(),
+                            color: Colors.greenAccent,
+                            radius: 12,
+                            showTitle: false,
+                          ),
+                          PieChartSectionData(
+                            value: error.toDouble(),
+                            color: Colors.redAccent,
+                            radius: 12,
+                            showTitle: false,
+                          ),
+                          PieChartSectionData(
+                            value: idle.toDouble(),
+                            color: Colors.orangeAccent,
+                            radius: 12,
+                            showTitle: false,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ),
-                Expanded(
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      PieChart(
-                        PieChartData(
-                          sectionsSpace: 4,
-                          centerSpaceRadius: 36,
-                          sections: [
-                            PieChartSectionData(
-                              value: active.toDouble(),
-                              color: Colors.greenAccent,
-                              radius: 12,
-                              showTitle: false,
+                    Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '${utilization.toStringAsFixed(0)}%',
+                            style: GoogleFonts.outfit(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.blueAccent,
                             ),
-                            PieChartSectionData(
-                              value: error.toDouble(),
-                              color: Colors.redAccent,
-                              radius: 12,
-                              showTitle: false,
+                          ),
+                          Text(
+                            'LOAD',
+                            style: GoogleFonts.inter(
+                              fontSize: 7,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey,
+                              letterSpacing: 1.5,
                             ),
-                            PieChartSectionData(
-                              value: idle.toDouble(),
-                              color: Colors.orangeAccent,
-                              radius: 12,
-                              showTitle: false,
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                      Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '${utilization.toStringAsFixed(0)}%',
-                              style: GoogleFonts.outfit(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w900,
-                                color: Colors.blueAccent,
-                              ),
-                            ),
-                            Text(
-                              'LOAD',
-                              style: GoogleFonts.inter(
-                                fontSize: 7,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.grey,
-                                letterSpacing: 1.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -409,59 +412,59 @@ class _DashboardScreenState extends State<DashboardScreen> {
         borderRadius: BorderRadius.circular(24),
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Stack(
-              children: [
-                Positioned(
-                  top: 12,
-                  left: 12,
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          colors.first.withOpacity(0.2),
-                          colors.last.withOpacity(0.1),
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(10),
+          child: Stack(
+            children: [
+              Positioned(
+                top: 12,
+                left: 12,
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        colors.first.withOpacity(0.2),
+                        colors.last.withOpacity(0.1),
+                      ],
                     ),
-                    child: Icon(icon, color: colors.first, size: 18),
+                    borderRadius: BorderRadius.circular(10),
                   ),
+                  child: Icon(icon, color: colors.first, size: 18),
                 ),
-                Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const SizedBox(height: 20), // Compensate for top icon
-                      Text(
-                        label,
-                        style: GoogleFonts.inter(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.grey,
-                          letterSpacing: 1.5,
-                        ),
+              ),
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(height: 20), // Compensate for top icon
+                    Text(
+                      label,
+                      style: GoogleFonts.inter(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.grey,
+                        letterSpacing: 1.5,
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        value,
-                        style: GoogleFonts.outfit(
-                          fontSize: 26,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: -1,
-                        ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      value,
+                      style: GoogleFonts.outfit(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -1,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildSystemLogCard(bool isDark, List<Map<String, dynamic>> reports) {
+  Widget _buildSystemLogCard(bool isDark, List<MachineStatus> reports) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(24),
       child: BackdropFilter(
@@ -508,17 +511,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       Text(
                         'LIVE PRODUCTION FEED',
                         style: GoogleFonts.outfit(
-                          fontSize: 14,
+                          fontSize: 16,
                           fontWeight: FontWeight.w900,
                           color: isDark
-                              ? Colors.white.withOpacity(0.9)
-                              : Colors.black87,
+                              ? Colors.white.withOpacity(0.95)
+                              : Colors.black,
                           letterSpacing: 1.5,
                         ),
                       ),
                     ],
                   ),
-                  _PulsingDot(color: Colors.greenAccent, size: 8),
+                  Row(
+                    children: [
+                      Text(
+                        'SYNCING',
+                        style: GoogleFonts.jetBrainsMono(
+                          fontSize: 8,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.greenAccent,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _PulsingDot(color: Colors.greenAccent, size: 8),
+                    ],
+                  ),
                 ],
               ),
               const SizedBox(height: 16),
@@ -533,27 +549,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                         ),
                       )
-                    : ListView.builder(
-                        itemCount: reports.length,
-                        itemBuilder: (context, index) {
-                          final r = reports[index];
-                          final time = r['start_time'] != null
-                              ? r['start_time']
-                                    .toString()
-                                    .split('T')
-                                    .last
-                                    .substring(0, 5)
-                              : '--:--';
+                    : Scrollbar(
+                        controller: _logScrollController,
+                        thumbVisibility: true,
+                        child: ListView.builder(
+                          controller: _logScrollController,
+                          padding: const EdgeInsets.only(right: 12),
+                          itemCount: reports.length,
+                          itemBuilder: (context, index) {
+                            // Show latest first
+                            final r = reports[reports.length - 1 - index];
+                            final time = DateFormat(
+                              'HH:mm:ss',
+                            ).format(r.timestamp);
 
-                          return _buildLogItem(
-                            time,
-                            'Machine #${r['machine_id']} recorded ${r['energy']} kWh',
-                            index == 0 ? Colors.greenAccent : Colors.blueAccent,
-                            isDark,
-                            area: r['area']?.toString(),
-                            water: r['water']?.toString(),
-                          );
-                        },
+                            return _buildLogItem(
+                              time,
+                              'Machine #${r.machineId} updated status to ${r.status}',
+                              r.status == 'Error'
+                                  ? Colors.redAccent
+                                  : (r.status == 'Idle'
+                                        ? Colors.orangeAccent
+                                        : Colors.greenAccent),
+                              isDark,
+                              area: '${r.areaToday.toStringAsFixed(1)} m²',
+                              water: '${r.waterLevel.toStringAsFixed(0)}%',
+                            );
+                          },
+                        ),
                       ),
               ),
             ],
@@ -571,100 +594,132 @@ class _DashboardScreenState extends State<DashboardScreen> {
     String? area,
     String? water,
   }) {
+    IconData icon = Icons.info_outline_rounded;
+    if (message.contains('Error')) icon = Icons.error_outline_rounded;
+    if (message.contains('Idle')) icon = Icons.pause_circle_outline_rounded;
+    if (message.contains('Online')) icon = Icons.check_circle_outline_rounded;
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Container(
-        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: isDark
               ? Colors.white.withOpacity(0.02)
               : Colors.black.withOpacity(0.01),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.1)),
+          border: Border.all(color: color.withOpacity(0.1), width: 1),
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center, // Centered vertically
-          children: [
-            Container(
-              width: 45,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    time,
-                    style: GoogleFonts.jetBrainsMono(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      color: color.withOpacity(0.8),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  _PulsingDot(color: color, size: 4),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    message,
-                    style: GoogleFonts.inter(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white.withOpacity(0.9) : Colors.black87,
-                    ),
-                  ),
-                  if (message.contains('recorded')) // Show extra telemetry if it's an energy record
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Row(
-                        children: [
-                          if (area != null) ...[
-                            _buildLogDetailTag('AREA', area, Colors.blueAccent, isDark),
-                            const SizedBox(width: 8),
-                          ],
-                          if (water != null)
-                            _buildLogDetailTag('WATER', water, Colors.cyanAccent, isDark),
-                        ],
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: IntrinsicHeight(
+            child: Row(
+              children: [
+                // Tactical Left Accent Bar
+                Container(width: 4, color: color),
+                Container(
+                  width: 50,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  color: color.withOpacity(0.05),
+                  child: Center(
+                    child: Text(
+                      time,
+                      style: GoogleFonts.jetBrainsMono(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900,
+                        color: color,
                       ),
                     ),
-                ],
-              ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Icon(icon, size: 16, color: color.withOpacity(0.7)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 4,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          message.toUpperCase(),
+                          style: GoogleFonts.jetBrainsMono(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.2,
+                            color: isDark
+                                ? Colors.white.withOpacity(0.85)
+                                : Colors.black87,
+                          ),
+                        ),
+                        if (area != null || water != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Row(
+                              children: [
+                                if (area != null) ...[
+                                  _buildLogDetailTag(
+                                    'UNIT_AREA',
+                                    area,
+                                    Colors.blueAccent,
+                                    isDark,
+                                  ),
+                                  const SizedBox(width: 8),
+                                ],
+                                if (water != null)
+                                  _buildLogDetailTag(
+                                    'UNIT_WATER',
+                                    water,
+                                    Colors.cyanAccent,
+                                    isDark,
+                                  ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildLogDetailTag(String label, String value, Color color, bool isDark) {
+  Widget _buildLogDetailTag(
+    String label,
+    String value,
+    Color color,
+    bool isDark,
+  ) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(4),
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: color.withOpacity(0.2)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            label,
-            style: GoogleFonts.inter(
+            label.replaceAll('UNIT_', ''),
+            style: GoogleFonts.jetBrainsMono(
               fontSize: 7,
               fontWeight: FontWeight.w900,
-              color: Colors.grey,
+              color: color.withOpacity(0.6),
             ),
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 6),
           Text(
             value,
             style: GoogleFonts.jetBrainsMono(
-              fontSize: 8,
-              fontWeight: FontWeight.bold,
+              fontSize: 9,
+              fontWeight: FontWeight.w900,
               color: color,
             ),
           ),
@@ -676,6 +731,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildMainDashboardLayout(
     BuildContext context,
     DashboardViewModel dashVM,
+    MachineStatusViewModel statusVM,
     bool isDark,
   ) {
     return LayoutBuilder(
@@ -687,22 +743,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               Expanded(
                 flex: 2,
-                child: _buildMachinePulseSection(
-                  context,
-                  dashVM,
-                  isDark,
-                  hideHeader: false,
+                child: SizedBox(
+                  height: 600, // Consistent fixed height
+                  child: _buildMachinePulseSection(
+                    context,
+                    dashVM,
+                    isDark,
+                    hideHeader: false,
+                  ),
                 ),
               ),
               const SizedBox(width: 20),
               Expanded(
                 flex: 1,
                 child: SizedBox(
-                  height: 600, // Fixed height for log area in two-column mode
-                  child: _buildSystemLogCard(
-                    isDark,
-                    dashVM.summary?.recentReports ?? [],
-                  ),
+                  height: 600, // Matching height for logs
+                  child: _buildSystemLogCard(isDark, statusVM.telemetryHistory),
                 ),
               ),
             ],
@@ -710,14 +766,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         } else {
           return Column(
             children: [
-              _buildMachinePulseSection(context, dashVM, isDark),
-              const SizedBox(height: 20),
               SizedBox(
-                height: 400,
-                child: _buildSystemLogCard(
-                  isDark,
-                  dashVM.summary?.recentReports ?? [],
-                ),
+                height: 500, // Fixed height for machines in mobile
+                child: _buildMachinePulseSection(context, dashVM, isDark),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                height: 400, // Matching height for logs in mobile
+                child: _buildSystemLogCard(isDark, statusVM.telemetryHistory),
               ),
             ],
           );
@@ -732,84 +788,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
     bool isDark, {
     bool hideHeader = false,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (!hideHeader) ...[
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 12,
-                        height: 2,
-                        decoration: BoxDecoration(
-                          color: Colors.blueAccent,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'OPERATIONS PULSE',
-                        style: GoogleFonts.outfit(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 2,
-                          color: isDark
-                              ? Colors.white.withOpacity(0.9)
-                              : Colors.black87,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Real-time telemetry and fleet synchronization',
-                    style: GoogleFonts.inter(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.grey.withOpacity(0.7),
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ],
-              ),
-              _buildLiveBadge(),
-            ],
+    return Scrollbar(
+      controller: _machineScrollController,
+      thumbVisibility: true,
+      child: GridView.builder(
+        controller: _machineScrollController,
+        padding: const EdgeInsets.only(right: 16), // Padding for scrollbar
+        physics: const BouncingScrollPhysics(),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: Responsive.value(
+            context: context,
+            mobile: 1,
+            tablet: 1,
+            desktop: 2,
           ),
-          const SizedBox(height: 20),
-        ],
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: Responsive.value(
-              context: context,
-              mobile: 1,
-              tablet: 1,
-              desktop: 2,
-            ),
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 1.4,
-          ),
-          itemCount: dashVM.allMachines.length,
-          itemBuilder: (context, index) {
-            final machine = dashVM.allMachines[index];
-            return InkWell(
-              onTap: () {
-                dashVM.selectMachine(machine);
-                context.push(RouteNames.machineDetail, extra: machine);
-              },
-              child: _buildPulseCard(context, machine, isDark),
-            );
-          },
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 1.4,
         ),
-      ],
+        itemCount: dashVM.allMachines.length,
+        itemBuilder: (context, index) {
+          final machine = dashVM.allMachines[index];
+          return InkWell(
+            onTap: () {
+              dashVM.selectMachine(machine);
+              context.push(RouteNames.machineDetail, extra: machine);
+            },
+            child: _buildPulseCard(context, machine, isDark),
+          );
+        },
+      ),
     );
   }
 
@@ -852,9 +860,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         bool hasAlert = status?.status == 'Error';
 
         return Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-          ),
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(24)),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(24),
             child: BackdropFilter(
@@ -890,11 +896,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: statusColor.withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: statusColor.withOpacity(0.3)),
+                                    border: Border.all(
+                                      color: statusColor.withOpacity(0.3),
+                                    ),
                                   ),
                                   child: Text(
                                     machine.name,
@@ -917,7 +928,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       style: GoogleFonts.inter(
                                         fontSize: 8,
                                         fontWeight: FontWeight.w900,
-                                        color: isDark ? Colors.white70 : Colors.black54,
+                                        color: isDark
+                                            ? Colors.white70
+                                            : Colors.black54,
                                         letterSpacing: 1,
                                       ),
                                     ),
@@ -933,8 +946,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     // Data Grid Segment
                     Expanded(
+                      flex: 2,
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(10, 8, 10, 0), // Removed bottom padding
+                        padding: const EdgeInsets.fromLTRB(
+                          10,
+                          8,
+                          10,
+                          0,
+                        ), // Removed bottom padding
                         child: GridView.count(
                           shrinkWrap: true,
                           crossAxisCount: 3,
@@ -1000,43 +1019,46 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ),
                     // Action Buttons Segment (Moved to Bottom)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(10, 0, 10, 12),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: _buildActionButton(
-                              context,
-                              machine.id,
-                              'START',
-                              Icons.bolt_rounded,
-                              Colors.greenAccent,
-                              isDark,
+                    Expanded(
+                      flex: 1,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(10, 0, 10, 12),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _buildActionButton(
+                                context,
+                                machine.id,
+                                'START',
+                                Icons.bolt_rounded,
+                                Colors.greenAccent,
+                                isDark,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: _buildActionButton(
-                              context,
-                              machine.id,
-                              'STOP',
-                              Icons.power_settings_new_rounded,
-                              Colors.redAccent,
-                              isDark,
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _buildActionButton(
+                                context,
+                                machine.id,
+                                'STOP',
+                                Icons.power_settings_new_rounded,
+                                Colors.redAccent,
+                                isDark,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: _buildActionButton(
-                              context,
-                              machine.id,
-                              'DOCK',
-                              Icons.anchor_rounded,
-                              Colors.blueAccent,
-                              isDark,
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _buildActionButton(
+                                context,
+                                machine.id,
+                                'DOCK',
+                                Icons.anchor_rounded,
+                                Colors.blueAccent,
+                                isDark,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ],
