@@ -1,10 +1,44 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <module type="PYTHON_MODULE" version="4">
-  <component name="NewModuleRootManager">
+  <component name="NewModuleRootManager" inherit-compiler-output="true">
+    <exclude-output />
     <content url="file://$MODULE_DIR$">
       <excludeFolder url="file://$MODULE_DIR$/SPI_Software_Version_Manager/FrontEnd/.dart_tool" />
       <excludeFolder url="file://$MODULE_DIR$/SPI_Software_Version_Manager/FrontEnd/.pub" />
       <excludeFolder url="file://$MODULE_DIR$/SPI_Software_Version_Manager/FrontEnd/build" />
+      <excludeFolder url="file://$MODULE_DIR$/Frontend/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/Frontend/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/Frontend/build" />
+      <excludeFolder url="file://$MODULE_DIR$/Frontend/windows/flutter/ephemeral/.plugin_symlinks/file_picker/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/Frontend/windows/flutter/ephemeral/.plugin_symlinks/file_picker/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/Frontend/windows/flutter/ephemeral/.plugin_symlinks/file_picker/build" />
+      <excludeFolder url="file://$MODULE_DIR$/Frontend/windows/flutter/ephemeral/.plugin_symlinks/file_picker/example/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/Frontend/windows/flutter/ephemeral/.plugin_symlinks/file_picker/example/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/Frontend/windows/flutter/ephemeral/.plugin_symlinks/file_picker/example/build" />
+      <excludeFolder url="file://$MODULE_DIR$/Frontend/windows/flutter/ephemeral/.plugin_symlinks/file_saver/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/Frontend/windows/flutter/ephemeral/.plugin_symlinks/file_saver/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/Frontend/windows/flutter/ephemeral/.plugin_symlinks/file_saver/build" />
+      <excludeFolder url="file://$MODULE_DIR$/Frontend/windows/flutter/ephemeral/.plugin_symlinks/file_saver/example/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/Frontend/windows/flutter/ephemeral/.plugin_symlinks/file_saver/example/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/Frontend/windows/flutter/ephemeral/.plugin_symlinks/file_saver/example/build" />
+      <excludeFolder url="file://$MODULE_DIR$/Frontend/windows/flutter/ephemeral/.plugin_symlinks/path_provider_windows/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/Frontend/windows/flutter/ephemeral/.plugin_symlinks/path_provider_windows/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/Frontend/windows/flutter/ephemeral/.plugin_symlinks/path_provider_windows/build" />
+      <excludeFolder url="file://$MODULE_DIR$/Frontend/windows/flutter/ephemeral/.plugin_symlinks/path_provider_windows/example/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/Frontend/windows/flutter/ephemeral/.plugin_symlinks/path_provider_windows/example/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/Frontend/windows/flutter/ephemeral/.plugin_symlinks/path_provider_windows/example/build" />
+      <excludeFolder url="file://$MODULE_DIR$/Frontend/windows/flutter/ephemeral/.plugin_symlinks/printing/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/Frontend/windows/flutter/ephemeral/.plugin_symlinks/printing/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/Frontend/windows/flutter/ephemeral/.plugin_symlinks/printing/build" />
+      <excludeFolder url="file://$MODULE_DIR$/Frontend/windows/flutter/ephemeral/.plugin_symlinks/printing/example/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/Frontend/windows/flutter/ephemeral/.plugin_symlinks/printing/example/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/Frontend/windows/flutter/ephemeral/.plugin_symlinks/printing/example/build" />
+      <excludeFolder url="file://$MODULE_DIR$/Frontend/windows/flutter/ephemeral/.plugin_symlinks/shared_preferences_windows/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/Frontend/windows/flutter/ephemeral/.plugin_symlinks/shared_preferences_windows/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/Frontend/windows/flutter/ephemeral/.plugin_symlinks/shared_preferences_windows/build" />
+      <excludeFolder url="file://$MODULE_DIR$/Frontend/windows/flutter/ephemeral/.plugin_symlinks/shared_preferences_windows/example/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/Frontend/windows/flutter/ephemeral/.plugin_symlinks/shared_preferences_windows/example/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/Frontend/windows/flutter/ephemeral/.plugin_symlinks/shared_preferences_windows/example/build" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.11" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />

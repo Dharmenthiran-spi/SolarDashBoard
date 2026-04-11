@@ -1,6 +1,6 @@
 {
-    "name": "solar_dashboard",
-    "short_name": "solar_dashboard",
+    "name": "SolarDashBoard",
+    "short_name": "SolarDashBoard",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
